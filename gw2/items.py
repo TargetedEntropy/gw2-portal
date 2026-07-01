@@ -98,18 +98,13 @@ def enrich_slots(slots: list[dict | None], sell_threshold: int, keep_rarity_min:
 
     try:
         unlocked_recipe_ids = set(api.account_recipes())
+        rev_index = api.recipe_index()
+        recipe_output_items = {
+            iid for iid in item_ids
+            if any(r in unlocked_recipe_ids for r in rev_index.get(iid, []))
+        }
     except Exception:
-        unlocked_recipe_ids = set()
-
-    # Build set of item IDs that appear as outputs in unlocked recipes
-    recipe_output_items: set[int] = set()
-    for iid in item_ids:
-        try:
-            recipe_ids = api.recipes_for_output(iid)
-            if any(r in unlocked_recipe_ids for r in recipe_ids):
-                recipe_output_items.add(iid)
-        except Exception:
-            pass
+        recipe_output_items = set()
 
     result = []
     for slot in slots:

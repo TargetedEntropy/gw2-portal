@@ -53,46 +53,77 @@ def materials():
 
 
 def items_bulk(ids: list[int]) -> dict[int, dict]:
-    """Fetch item details in chunks of 200. Returns {id: item_detail}."""
+    """Fetch item details, caching each ID individually for 1h. Returns {id: item_detail}."""
     result = {}
-    ids = list(set(ids))
-    for i in range(0, len(ids), 200):
-        chunk = ids[i:i+200]
-        key = f"/items_bulk_{'_'.join(map(str, sorted(chunk)))}"
-        cached = cache.get(key, ttl=3600)
-        if cached is not None:
-            result.update({int(k): v for k, v in cached.items()})
-            continue
-        data = _get("/items", params={"ids": ",".join(map(str, chunk))}, ttl=3600, authenticated=False)
-        chunk_map = {item["id"]: item for item in data}
-        cache.set(key, {str(k): v for k, v in chunk_map.items()})
-        result.update(chunk_map)
+    missing = []
+    for iid in set(ids):
+        hit = cache.get(f"item:{iid}", ttl=3600)
+        if hit is not None:
+            result[iid] = hit
+        else:
+            missing.append(iid)
+
+    for i in range(0, len(missing), 200):
+        chunk = missing[i:i+200]
+        try:
+            data = _get("/items", params={"ids": ",".join(map(str, chunk))}, ttl=3600, authenticated=False)
+            for item in data:
+                cache.set(f"item:{item['id']}", item)
+                result[item["id"]] = item
+        except Exception:
+            pass
+
     return result
 
 
 def prices_bulk(ids: list[int]) -> dict[int, dict]:
-    """Fetch TP prices in chunks of 200. Returns {id: price_detail}."""
+    """Fetch TP prices, caching each ID individually for 2min. Returns {id: price_detail}."""
     result = {}
-    ids = list(set(ids))
-    for i in range(0, len(ids), 200):
-        chunk = ids[i:i+200]
-        key = f"/prices_bulk_{'_'.join(map(str, sorted(chunk)))}"
-        cached = cache.get(key, ttl=120)
-        if cached is not None:
-            result.update({int(k): v for k, v in cached.items()})
-            continue
+    missing = []
+    for iid in set(ids):
+        hit = cache.get(f"price:{iid}", ttl=120)
+        if hit is not None:
+            result[iid] = hit
+        else:
+            missing.append(iid)
+
+    for i in range(0, len(missing), 200):
+        chunk = missing[i:i+200]
         try:
             data = _get("/commerce/prices", params={"ids": ",".join(map(str, chunk))}, ttl=120, authenticated=False)
-            chunk_map = {item["id"]: item for item in data}
-            cache.set(key, {str(k): v for k, v in chunk_map.items()})
-            result.update(chunk_map)
+            for p in data:
+                cache.set(f"price:{p['id']}", p)
+                result[p["id"]] = p
         except Exception:
             pass
+
     return result
 
 
-def recipes_for_output(item_id: int) -> list:
-    return _get("/recipes/search", params={"output": item_id}, ttl=3600, authenticated=False)
+def recipe_index() -> dict[int, list[int]]:
+    """
+    Build a full reverse-lookup: {output_item_id: [recipe_id, ...]}.
+    Fetches all ~13k recipes and caches the index for 24h.
+    """
+    hit = cache.get("recipe_index", ttl=86400)
+    if hit is not None:
+        return {int(k): v for k, v in hit.items()}
+
+    all_ids = _get("/recipes", ttl=86400, authenticated=False)
+    index: dict[int, list[int]] = {}
+    for i in range(0, len(all_ids), 200):
+        chunk = all_ids[i:i+200]
+        try:
+            recipes = _get("/recipes", params={"ids": ",".join(map(str, chunk))}, ttl=86400, authenticated=False)
+            for r in recipes:
+                out = r.get("output_item_id")
+                if out:
+                    index.setdefault(out, []).append(r["id"])
+        except Exception:
+            pass
+
+    cache.set("recipe_index", {str(k): v for k, v in index.items()})
+    return index
 
 
 def account_recipes() -> list[int]:
