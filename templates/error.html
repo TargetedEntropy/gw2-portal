@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Error — GW2 Portal{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;position:relative;z-index:10">
+  <div class="error-box">
+    <div style="font-size:32px;margin-bottom:16px">⚠</div>
+    <div style="font-size:14px;color:var(--gold-light);margin-bottom:12px">Something went wrong</div>
+    <div style="font-size:11px;color:var(--muted);font-family:monospace;word-break:break-all">{{ error }}</div>
+    <div style="margin-top:20px">
+      <a href="/" style="font-size:9px;letter-spacing:2px;text-transform:uppercase">← Back to Account</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

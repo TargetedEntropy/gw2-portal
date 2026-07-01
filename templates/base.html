@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}GW2 Portal{% endblock %}</title>
+<style>
+  :root {
+    --bg: #0a0f14;
+    --surface: rgba(140,90,20,0.06);
+    --border: rgba(140,90,20,0.2);
+    --border2: rgba(140,90,20,0.45);
+    --crimson: #8b0000;
+    --crimson-glow: rgba(139,0,0,0.4);
+    --ember: #e06030;
+    --gold: #c8a84b;
+    --gold-light: #e8c060;
+    --cream: rgba(240,225,195,0.88);
+    --muted: rgba(200,160,80,0.5);
+    --teal: #1ea89a;
+    --keep-green: #1a9306;
+    --sell-gold: #fcd00b;
+    --toss-red: #c0392b;
+    /* rarity */
+    --r-junk: #aaaaaa;
+    --r-basic: #ffffff;
+    --r-fine: #62a4da;
+    --r-masterwork: #1a9306;
+    --r-rare: #fcd00b;
+    --r-exotic: #ffa405;
+    --r-ascended: #fb3e8d;
+    --r-legendary: #4c139d;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(139,0,0,0.1), transparent);
+    color: var(--cream);
+    font-family: 'Georgia', serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+
+  /* NAV */
+  .site-nav {
+    position: relative; z-index: 20;
+    background: rgba(10,15,20,0.95);
+    border-bottom: 1px solid var(--border2);
+    padding: 0 32px;
+    display: flex; align-items: center; gap: 0;
+  }
+  .nav-brand {
+    font-size: 13px; font-weight: 900; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--gold-light);
+    padding: 14px 0; margin-right: 32px;
+  }
+  .nav-brand span { color: var(--ember); }
+  .nav-link {
+    display: block; padding: 14px 16px;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .nav-link:hover, .nav-link.active { color: var(--gold-light); border-bottom-color: var(--gold); }
+
+  /* HEADER */
+  .char-header {
+    position: relative; z-index: 10;
+    background: linear-gradient(180deg, rgba(139,0,0,0.12), transparent);
+    border-bottom: 1px solid var(--border2); padding: 20px 32px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center;
+  }
+  .char-portrait {
+    width: 88px; height: 88px; border: 2px solid var(--gold);
+    display: flex; align-items: center; justify-content: center; font-size: 42px;
+    background: rgba(0,0,0,0.5); position: relative; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .char-portrait img { width: 100%; height: 100%; object-fit: cover; }
+  .char-portrait::after {
+    content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+    box-shadow: 0 0 18px var(--crimson-glow);
+  }
+  .char-meta { display: flex; flex-direction: column; gap: 4px; }
+  .char-name { font-size: 28px; font-weight: 900; color: var(--gold-light); letter-spacing: -1px; }
+  .char-sub { font-size: 11px; color: var(--ember); letter-spacing: 2px; text-transform: uppercase; }
+  .char-detail { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .badge { display: inline-block; padding: 2px 8px; font-size: 8px; letter-spacing: 1px; border: 1px solid; margin: 2px; }
+
+  .char-stats { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+  .stat-bar { display: flex; align-items: center; gap: 8px; }
+  .sb-icon { width: 16px; font-size: 11px; flex-shrink: 0; }
+  .sb-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); width: 34px; }
+  .sb-val { font-size: 10px; font-family: 'Courier New', monospace; width: 80px; text-align: right; }
+
+  /* LAYOUT */
+  .char-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    min-height: calc(100vh - 160px);
+    position: relative; z-index: 1;
+  }
+  .left-panel { border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .center-panel { padding: 20px 24px; overflow-y: auto; }
+  .right-panel { border-left: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+  .panel-block { border: 1px solid var(--border); background: var(--surface); padding: 12px; }
+  .pb-title {
+    font-size: 8px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold);
+    margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+  }
+
+  /* ITEM CARDS */
+  .item-section { margin-bottom: 24px; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .section-title { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; }
+  .section-count { font-size: 9px; color: var(--muted); }
+  .verdict-keep .section-title { color: var(--keep-green); }
+  .verdict-sell .section-title { color: var(--sell-gold); }
+  .verdict-toss .section-title { color: var(--toss-red); }
+
+  .item-grid { display: flex; flex-direction: column; gap: 4px; }
+  .item-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 100px 90px 90px 110px;
+    align-items: center; gap: 8px;
+    padding: 6px 8px; border: 1px solid transparent;
+    background: rgba(0,0,0,0.2);
+    transition: border-color 0.1s, background 0.1s;
+    cursor: default;
+  }
+  .item-row:hover { border-color: var(--border2); background: rgba(200,168,75,0.05); }
+  .item-icon { width: 32px; height: 32px; flex-shrink: 0; position: relative; }
+  .item-icon img { width: 100%; height: 100%; }
+  .item-icon .count-badge {
+    position: absolute; bottom: -2px; right: -2px;
+    background: rgba(0,0,0,0.8); color: var(--cream);
+    font-size: 8px; font-family: 'Courier New', monospace;
+    padding: 0 3px; border: 1px solid var(--border);
+  }
+  .item-name { font-size: 11px; }
+  .item-type { font-size: 9px; color: var(--muted); margin-top: 1px; }
+  .item-col { font-size: 10px; font-family: 'Courier New', monospace; text-align: right; }
+  .item-verdict {
+    font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+    padding: 2px 8px; border: 1px solid; text-align: center;
+  }
+  .v-keep { color: var(--keep-green); border-color: var(--keep-green); }
+  .v-sell { color: var(--sell-gold); border-color: var(--sell-gold); }
+  .v-toss { color: var(--toss-red); border-color: var(--toss-red); }
+  .item-reason { font-size: 9px; color: var(--muted); }
+
+  .col-header {
+    display: grid;
+    grid-template-columns: 36px 1fr 100px 90px 90px 110px;
+    gap: 8px; padding: 0 8px 4px;
+    font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .col-r { text-align: right; }
+
+  /* WALLET */
+  .wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .wallet-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); }
+  .wallet-icon { width: 20px; height: 20px; }
+  .wallet-name { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .wallet-val { font-size: 12px; font-weight: 700; color: var(--gold-light); margin-left: auto; font-family: 'Courier New', monospace; }
+
+  /* CHAR LIST */
+  .char-list { display: flex; flex-direction: column; gap: 4px; }
+  .char-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border: 1px solid var(--border);
+    background: rgba(0,0,0,0.3); text-decoration: none; color: var(--cream);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .char-item:hover { border-color: var(--gold); background: rgba(200,168,75,0.06); }
+  .char-item-name { font-size: 12px; font-weight: 700; color: var(--gold-light); }
+  .char-item-sub { font-size: 9px; color: var(--muted); margin-top: 2px; }
+  .char-item-arrow { margin-left: auto; color: var(--muted); font-size: 10px; }
+
+  /* SUMMARY BOXES */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+  .summary-box { border: 1px solid var(--border); background: var(--surface); padding: 14px; text-align: center; }
+  .sb-val-big { font-size: 22px; font-weight: 900; }
+  .sb-label-sm { font-size: 8px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+
+  /* TOOLTIP */
+  .item-row { position: relative; }
+  .item-tooltip {
+    display: none; position: absolute; left: 44px; top: 100%; z-index: 100;
+    background: rgba(10,15,20,0.97); border: 1px solid var(--border2);
+    padding: 10px 12px; min-width: 220px; max-width: 300px;
+    font-size: 11px; line-height: 1.5;
+    pointer-events: none;
+  }
+  .item-row:hover .item-tooltip { display: block; }
+  .tt-name { font-weight: 700; margin-bottom: 4px; }
+  .tt-desc { color: var(--muted); font-size: 10px; font-style: italic; }
+  .tt-type { font-size: 9px; color: var(--teal); margin-top: 4px; letter-spacing: 1px; }
+
+  .error-box {
+    position: relative; z-index: 10; margin: 40px auto; max-width: 500px;
+    border: 1px solid var(--crimson); background: rgba(139,0,0,0.1);
+    padding: 24px; text-align: center;
+  }
+
+  a { color: var(--gold); }
+  a:hover { color: var(--gold-light); }
+</style>
+{% block extra_style %}{% endblock %}
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="nav-brand">GW2 <span>PORTAL</span></div>
+  <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Account</a>
+  <a href="/bank" class="nav-link {% if request.path == '/bank' %}active{% endif %}">Bank</a>
+</nav>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

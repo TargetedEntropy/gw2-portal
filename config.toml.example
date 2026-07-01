@@ -1,0 +1,8 @@
+[gw2]
+api_key = "YOUR-API-KEY-HERE"
+
+[analysis]
+# Copper profit threshold: TP sell * 0.85 - vendor_value must exceed this to recommend "sell"
+sell_threshold_copper = 100
+# Rarity level at or above which items are auto-kept (0=Junk,1=Basic,2=Fine,3=Masterwork,4=Rare,5=Exotic,6=Ascended,7=Legendary)
+keep_rarity_min = 4

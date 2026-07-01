@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} — GW2 Portal{% endblock %}
+
+{% block content %}
+<div class="char-header">
+  <div class="char-portrait">⚔</div>
+  <div class="char-meta">
+    <div class="char-name">{{ account.name }}</div>
+    <div class="char-sub">Tyrian Commander · Guild Wars 2</div>
+    <div class="char-detail">
+      World: {{ account.world }} &nbsp;·&nbsp;
+      Created: {{ account.created[:10] if account.created else 'unknown' }} &nbsp;·&nbsp;
+      {{ char_names|length }} Characters
+    </div>
+    <div style="margin-top:8px">
+      {% for access in account.get('access', []) %}
+        <span class="badge" style="color:var(--gold);border-color:var(--gold)">{{ access }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="char-stats">
+    {% for c in wallet[:4] %}
+    <div class="stat-bar">
+      {% if c.icon %}
+        <img src="{{ c.icon }}" class="sb-icon" style="width:14px;height:14px" alt="">
+      {% else %}
+        <div class="sb-icon">◆</div>
+      {% endif %}
+      <div class="sb-label">{{ c.name[:6] }}</div>
+      <div class="sb-val" style="color:var(--gold-light)">{{ c.value_fmt }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="char-layout">
+  <!-- Left: Characters -->
+  <div class="left-panel">
+    <div class="panel-block">
+      <div class="pb-title">CHARACTERS <span style="color:var(--muted)">{{ char_names|length }}</span></div>
+      <div class="char-list">
+        {% for name in char_names %}
+        <a href="/inventory/{{ name | urlencode }}" class="char-item">
+          <div>
+            <div class="char-item-name">{{ name }}</div>
+          </div>
+          <div class="char-item-arrow">→</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Wallet breakdown -->
+  <div class="center-panel">
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">WALLET</div>
+    <div class="wallet-grid">
+      {% for c in wallet %}
+      <div class="wallet-item">
+        {% if c.icon %}<img src="{{ c.icon }}" class="wallet-icon" alt="">{% else %}<span style="font-size:18px">◆</span>{% endif %}
+        <div>
+          <div class="wallet-name">{{ c.name }}</div>
+        </div>
+        <div class="wallet-val">{{ c.value_fmt }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:32px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">QUICK ACTIONS</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="/bank" style="padding:8px 16px;border:1px solid var(--gold);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--gold)">
+        Analyse Bank →
+      </a>
+      {% for name in char_names[:3] %}
+      <a href="/inventory/{{ name | urlencode }}" style="padding:8px 16px;border:1px solid var(--border2);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--muted)">
+        {{ name }} →
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right: Account info -->
+  <div class="right-panel">
+    <div class="panel-block">
+      <div class="pb-title">ACCOUNT INFO</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:10px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">ID</span><span style="font-family:monospace;font-size:9px">{{ account.id[:18] }}…</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Fractal Level</span><span style="color:var(--gold-light)">{{ account.get('fractal_level', '—') }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Daily AP</span><span style="color:var(--gold-light)">{{ account.get('daily_ap', '—') }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Monthly AP</span><span style="color:var(--gold-light)">{{ account.get('monthly_ap', '—') }}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">WvW Rank</span><span style="color:var(--gold-light)">{{ account.get('wvw_rank', '—') }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
