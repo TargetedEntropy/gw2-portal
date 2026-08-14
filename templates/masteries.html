@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Masteries — GW2 Portal{% endblock %}
+
+{% block content %}
+{% if building %}
+<div class="char-header">
+  <div class="char-portrait">🎓</div>
+  <div class="char-meta">
+    <div class="char-name">Masteries</div>
+    <div class="char-sub">Building the index</div>
+  </div>
+</div>
+<div class="char-layout" style="grid-template-columns:1fr">
+  <div class="center-panel">
+    <div class="banner info">
+      <strong>Scanning the achievement catalogue.</strong>
+      There is no endpoint for “achievements that grant mastery points”, so all
+      ~8,200 have to be walked once — about two minutes. It runs in the background
+      and only repeats after a game patch. Reload shortly.
+    </div>
+  </div>
+</div>
+{% else %}
+
+<div class="char-header">
+  <div class="char-portrait">🎓</div>
+  <div class="char-meta">
+    <div class="char-name">Masteries</div>
+    <div class="char-sub">Account-wide · not per character</div>
+    <div class="char-detail">
+      {{ completed }} of {{ catalogue_total }} point-granting achievements complete
+      &nbsp;·&nbsp; {{ remaining_total }} still available to you
+    </div>
+    <div style="margin-top:6px">
+      <a href="{{ url_for('index') }}" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Account</a>
+    </div>
+  </div>
+  <div class="char-stats">
+    <div class="stat-bar">
+      <div class="sb-icon">🏅</div>
+      <div class="sb-label">Unspent</div>
+      <div class="sb-val" style="color:{{ 'var(--sell-gold)' if unspent else 'var(--muted)' }};font-size:14px;font-weight:900">{{ unspent }}</div>
+    </div>
+    <div class="stat-bar">
+      <div class="sb-icon">✅</div>
+      <div class="sb-label">Earned</div>
+      <div class="sb-val" style="color:var(--keep-green)">{{ summary | sum(attribute='earned') }}</div>
+    </div>
+    <div class="stat-bar">
+      <div class="sb-icon">📋</div>
+      <div class="sb-label">Left</div>
+      <div class="sb-val" style="color:var(--gold-light)">{{ remaining_total }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="char-layout">
+  <!-- Left: per-region -->
+  <div class="left-panel">
+    {% if unspent %}
+    <div class="banner" style="margin-bottom:0">
+      <strong>{{ unspent }} point{{ 's' if unspent != 1 }} earned but not spent.</strong>
+      You can spend {{ 'these' if unspent != 1 else 'this' }} right now without
+      earning anything new — check the regions marked below.
+    </div>
+    {% endif %}
+
+    <div class="panel-block">
+      <div class="pb-title">BY REGION</div>
+      <div style="font-size:10px;display:flex;flex-direction:column;gap:8px">
+        {% for r in summary %}
+        <div style="border-bottom:1px solid rgba(140,90,20,0.12);padding-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <a href="{{ url_for('masteries', region=r.code, tier=tier_filter) }}"
+               style="color:{{ 'var(--gold-light)' if region_filter == r.code else 'var(--cream)' }};text-decoration:none;font-size:11px">{{ r.region }}</a>
+            {% if r.unspent %}
+              <span style="color:var(--sell-gold);font-weight:900">{{ r.unspent }} unspent</span>
+            {% endif %}
+          </div>
+          <div style="color:var(--muted);font-size:9px;margin-top:2px">
+            {{ r.earned }} earned · {{ r.spent }} spent · {{ r.remaining }} left
+            {%- if r.insights %} · <span style="color:var(--teal)">{{ r.insights }} insights</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if region_filter %}
+      <div style="margin-top:8px">
+        <a class="chip" href="{{ url_for('masteries', tier=tier_filter) }}">clear region filter</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="panel-block">
+      <div class="pb-title">HOW “EASE” IS RANKED</div>
+      <div style="font-size:9px;color:var(--muted);line-height:1.6">
+        <p style="margin-bottom:6px">The API has <strong>no difficulty field</strong>.
+        This ordering is inferred from the achievement's category, your progress, and
+        how many steps it has.</p>
+        <p>Insights are ranked easiest because the API marks them as their own category
+        and the requirement is simply to travel somewhere and interact. Group content is
+        ranked last by a hand-written rule, not by data.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: the list -->
+  <div class="center-panel">
+    <div style="margin-bottom:16px">
+      <a class="chip {% if not tier_filter %}active{% endif %}"
+         href="{{ url_for('masteries', region=region_filter) }}">All</a>
+      {% for t, label in tier_labels.items() %}
+      <a class="chip {% if tier_filter == t|string %}active{% endif %}"
+         href="{{ url_for('masteries', region=region_filter, tier=t) }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+
+    <div style="font-size:9px;color:var(--muted);margin-bottom:10px">
+      Showing {{ rows|length }} of {{ shown_total }} matching
+      {%- if shown_total > rows|length %} (capped for page size){% endif %}
+    </div>
+
+    {% set ns = namespace(tier=-1) %}
+    {% for r in rows %}
+      {% if r.tier != ns.tier %}
+        {% set ns.tier = r.tier %}
+        <div class="section-header" style="margin-top:18px">
+          <div class="section-title" style="color:var(--gold)">{{ r.tier_label }}</div>
+          <div class="section-count">{{ shown_total if tier_filter else rows | selectattr('tier','equalto',r.tier) | list | length }}</div>
+        </div>
+      {% endif %}
+      <div class="item-row" style="grid-template-columns:1fr 120px 90px 150px">
+        <div>
+          <a class="item-name wiki-link" style="color:var(--cream)"
+             href="{{ r.wiki_url }}" target="_blank" rel="noopener noreferrer"
+             title="Look up “{{ r.name }}” on the official wiki">{{ r.name }}<span class="ext">↗</span></a>
+          <div class="item-type">{{ r.requirement | truncate(110) }}</div>
+        </div>
+        <div class="item-col" style="text-align:left;color:var(--muted)">{{ r.category or '—' }}</div>
+        <div class="item-col" style="color:var(--teal)">{{ r.region_name }}</div>
+        <div class="item-col" style="text-align:left">
+          {% if r.max %}
+            <span style="color:var(--sell-gold)">{{ r.current }}/{{ r.max }}</span>
+            <span style="color:var(--muted)"> · {{ r.percent }}%</span>
+          {% elif r.bits %}
+            <span style="color:var(--muted)">{{ r.bits }} steps</span>
+          {% else %}
+            <span style="color:var(--muted)">—</span>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div style="text-align:center;padding:40px;color:var(--muted);font-size:12px">
+        Nothing matches that filter.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

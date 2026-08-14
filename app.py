@@ -13,6 +13,7 @@ else:
 
 from gw2 import api, cache
 from gw2 import items as gw2_items
+from gw2 import masteries as gw2_masteries
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -278,6 +279,43 @@ def search():
     )
 
 
+@app.route("/masteries")
+def masteries():
+    catalogue = api.cached_mastery_achievements()
+    if catalogue is None:
+        return render_template("masteries.html", building=True), 200
+
+    points = api.account_mastery_points()
+    mine = api.account_achievements()
+    owned = gw2_masteries.owned_region_codes(points)
+
+    remaining = gw2_masteries.remaining_points(catalogue, mine, owned)
+
+    region_filter = request.args.get("region") or ""
+    tier_filter = request.args.get("tier") or ""
+    shown = remaining
+    if region_filter:
+        shown = [r for r in shown if r["region"] == region_filter]
+    if tier_filter.isdigit():
+        shown = [r for r in shown if r["tier"] == int(tier_filter)]
+
+    summary = gw2_masteries.region_summary(points, remaining)
+    return render_template(
+        "masteries.html",
+        building=False,
+        summary=summary,
+        rows=shown[:400],
+        shown_total=len(shown),
+        remaining_total=len(remaining),
+        completed=gw2_masteries.completed_count(catalogue, mine),
+        catalogue_total=len(catalogue),
+        unspent=sum(r["unspent"] for r in summary),
+        region_filter=region_filter,
+        tier_filter=tier_filter,
+        tier_labels=gw2_masteries.TIER_LABELS,
+    )
+
+
 def _account_wide_items() -> list:
     """Every item the account holds, from every location, enriched once."""
     out = []
@@ -338,12 +376,16 @@ def _scheduler():
     The recipe crawl is ~66 upstream calls; running it inside a page render blocked
     the user for the whole crawl and let concurrent tabs each start their own.
     """
-    try:
-        if api.cached_recipe_index() is None:
-            log.info("no recipe index cached — building in background")
-            api.build_recipe_index()
-    except Exception:
-        log.exception("initial recipe index build failed")
+    for label, ready, build in (
+        ("recipe", api.cached_recipe_index, api.build_recipe_index),
+        ("mastery", api.cached_mastery_achievements, api.build_mastery_achievements),
+    ):
+        try:
+            if ready() is None:
+                log.info("no %s index cached — building in background", label)
+                build()
+        except Exception:
+            log.exception("initial %s index build failed", label)
 
     last_index = time.time()
     while True:
@@ -353,11 +395,16 @@ def _scheduler():
         except Exception:
             log.exception("cache prune failed")
         if time.time() - last_index > 86400:
-            try:
-                api.build_recipe_index(force=True)
-                last_index = time.time()
-            except Exception:
-                log.exception("scheduled recipe index rebuild failed")
+            # Both only change on game patches.
+            for label, build in (
+                ("recipe", api.build_recipe_index),
+                ("mastery", api.build_mastery_achievements),
+            ):
+                try:
+                    build(force=True)
+                except Exception:
+                    log.exception("scheduled %s index rebuild failed", label)
+            last_index = time.time()
 
 
 def start_background_jobs(reloader: bool = False):

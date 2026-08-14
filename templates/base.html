@@ -289,6 +289,7 @@
   <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Account</a>
   <a href="{{ url_for('bank') }}" class="nav-link {% if request.endpoint == 'bank' %}active{% endif %}">Bank</a>
   <a href="{{ url_for('search') }}" class="nav-link {% if request.endpoint == 'search' %}active{% endif %}">Search</a>
+  <a href="{{ url_for('masteries') }}" class="nav-link {% if request.endpoint == 'masteries' %}active{% endif %}">Masteries</a>
 </nav>
 
 {% block content %}{% endblock %}

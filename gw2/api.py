@@ -213,6 +213,24 @@ def account_recipes() -> list[int]:
     return _get("/account/recipes", ttl=300)
 
 
+def account_mastery_points() -> dict:
+    """{"totals": [{"region","spent","earned"}], "unlocked": [insight ids]}"""
+    return _get("/account/mastery/points", ttl=300)
+
+
+def account_masteries() -> list[dict]:
+    return _get("/account/masteries", ttl=300)
+
+
+def account_achievements() -> list[dict]:
+    """Only achievements with progress; untouched ones are absent entirely."""
+    return _get("/account/achievements", ttl=300)
+
+
+def masteries() -> list[dict]:
+    return _get("/masteries", params={"ids": "all"}, ttl=86400, authenticated=False)
+
+
 # --- Public endpoints --------------------------------------------------------
 
 
@@ -426,6 +444,114 @@ def build_recipe_index(force: bool = False) -> dict:
                 len(auto),
             )
         return index
+
+
+# --- Mastery-point achievement index ----------------------------------------
+
+_MASTERY_KEY = "mastery_achievements_v1"
+_mastery_lock = threading.Lock()
+_mastery_memo: tuple[float, list] | None = None
+
+
+def cached_mastery_achievements() -> list[dict] | None:
+    """Mastery-granting achievements, or None if the index isn't built yet."""
+    global _mastery_memo
+
+    stamp = cache.mtime(_MASTERY_KEY)
+    if stamp is None:
+        return None
+    if _mastery_memo is not None and _mastery_memo[0] == stamp:
+        return _mastery_memo[1]
+
+    raw = cache.get(_MASTERY_KEY, ttl=86400 * 7)
+    if raw is None or not raw.get("complete"):
+        return None
+    _mastery_memo = (stamp, raw["achievements"])
+    return raw["achievements"]
+
+
+def build_mastery_achievements(force: bool = False) -> list[dict]:
+    """Scan every achievement for the ones that award a mastery point.
+
+    There is no endpoint for "achievements that grant mastery points", so the full
+    catalogue has to be walked: ~8,200 achievements, ~42 requests. Like the recipe
+    index this is a background job, and the result only changes on game patches.
+    """
+    with _mastery_lock:
+        if not force:
+            existing = cached_mastery_achievements()
+            if existing is not None:
+                return existing
+
+        ids = _get("/achievements", ttl=86400, authenticated=False, cache_response=False)
+        log.info("scanning %d achievements for mastery rewards", len(ids))
+
+        # Category and group names are the strongest hint the API gives about what
+        # kind of content an achievement is, which is what the ease ranking uses.
+        cats = _get(
+            "/achievements/categories", params={"ids": "all"}, ttl=86400,
+            authenticated=False, cache_response=False,
+        )
+        groups = _get(
+            "/achievements/groups", params={"ids": "all"}, ttl=86400,
+            authenticated=False, cache_response=False,
+        )
+        cat_by_id = {c["id"]: c for c in cats}
+        cat_of, grp_of = {}, {}
+        for c in cats:
+            for a in c.get("achievements") or []:
+                aid = a if isinstance(a, int) else (a or {}).get("id")
+                if aid:
+                    cat_of[aid] = c["name"]
+        for g in groups:
+            for cid in g.get("categories") or []:
+                for a in (cat_by_id.get(cid) or {}).get("achievements") or []:
+                    aid = a if isinstance(a, int) else (a or {}).get("id")
+                    if aid:
+                        grp_of[aid] = g["name"]
+
+        found, failed = [], 0
+        for i in range(0, len(ids), BULK_LIMIT):
+            chunk = ids[i : i + BULK_LIMIT]
+            try:
+                batch = _get(
+                    "/achievements", params={"ids": ",".join(map(str, chunk))},
+                    ttl=86400, authenticated=False, cache_response=False,
+                )
+            except Exception as e:
+                log.warning("achievement chunk failed: %s", e)
+                failed += 1
+                continue
+
+            for a in batch:
+                reward = next(
+                    (r for r in (a.get("rewards") or []) if r.get("type") == "Mastery"),
+                    None,
+                )
+                if not reward:
+                    continue
+                tiers = a.get("tiers") or [{}]
+                found.append(
+                    {
+                        "id": a["id"],
+                        "name": a.get("name", f"Achievement {a['id']}"),
+                        "region": reward.get("region", ""),
+                        "requirement": a.get("requirement", ""),
+                        "type": a.get("type", ""),
+                        "flags": a.get("flags", []),
+                        "bits": len(a.get("bits") or []),
+                        "target": tiers[-1].get("count", 0),
+                        "category": cat_of.get(a["id"], ""),
+                        "group": grp_of.get(a["id"], ""),
+                    }
+                )
+
+        if failed:
+            log.warning("mastery index incomplete (%d chunks failed) — not caching", failed)
+        else:
+            cache.set(_MASTERY_KEY, {"complete": True, "achievements": found})
+            log.info("mastery index built: %d point-granting achievements", len(found))
+        return found
 
 
 def craftable_recipe_ids() -> set[int]:
