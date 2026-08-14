@@ -55,7 +55,14 @@
             <div style="width:28px;height:28px;background:rgba(0,0,0,0.4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px">⚔</div>
           {% endif %}
           <div>
-            <div style="font-size:10px;color:{{ color }}">{{ detail.get('name', 'Unknown') }}</div>
+            {% set ename = detail.get('name') %}
+            {% if ename %}
+              <a class="wiki-link" style="font-size:10px;color:{{ color }}"
+                 href="https://wiki.guildwars2.com/index.php?search={{ ename | urlencode }}"
+                 target="_blank" rel="noopener noreferrer">{{ ename }}</a>
+            {% else %}
+              <div style="font-size:10px;color:{{ color }}">Unknown</div>
+            {% endif %}
             <div style="font-size:8px;color:var(--muted)">{{ slot.get('slot','') }}</div>
           </div>
         </div>

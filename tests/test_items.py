@@ -4,6 +4,8 @@ Every P0 bug in fixes.md is represented here — these are the regression tests 
 would have caught them. Fixtures mirror real payload shapes taken from .cache/.
 """
 
+from unittest import mock
+
 import pytest
 
 from gw2 import items
@@ -215,3 +217,71 @@ def test_grouping_sorts_by_stack_value_not_unit_price():
 def test_group_by_verdict_has_every_verdict_key():
     grouped = items.group_by_verdict([])
     assert set(grouped) == set(items.VERDICTS)
+
+
+# --- Wiki links and "used in" (item lookup) ---------------------------------
+
+def test_wiki_url_uses_the_search_form_so_odd_names_still_resolve():
+    u = items.wiki_url("Fine Fish Fillet")
+    assert u == "https://wiki.guildwars2.com/index.php?search=Fine%20Fish%20Fillet"
+
+
+def test_wiki_url_escapes_characters_that_would_break_the_query():
+    # Em dashes and ampersands appear in real item names.
+    assert "&" not in items.wiki_url("Dye Canister—Red & Blue").split("search=")[1]
+    assert "%E2%80%94" in items.wiki_url("Dye Canister—Red")
+
+
+def test_wiki_url_of_a_nameless_item_is_empty_not_a_broken_link():
+    assert items.wiki_url("") == ""
+    assert items.wiki_url(None) == ""
+
+
+def test_used_in_lists_what_an_ingredient_makes():
+    index = {
+        "ingredients": {10: [100, 101]},
+        "recipe_output": {100: 900, 101: 901},
+    }
+    names = {
+        900: {"id": 900, "name": "Bowl of Soup", "rarity": "Fine"},
+        901: {"id": 901, "name": "Fish Pie", "rarity": "Basic"},
+    }
+    with mock.patch("gw2.api.items_bulk", return_value=(names, set())):
+        got = items._resolve_used_in({10}, index, craftable=set())
+    assert [e["name"] for e in got[10]] == ["Bowl of Soup", "Fish Pie"]
+    assert got[10][0]["wiki_url"].endswith("Bowl%20of%20Soup")
+
+
+def test_used_in_puts_craftable_recipes_first():
+    """The recipes you can actually make are the actionable ones."""
+    index = {
+        "ingredients": {10: [100, 101]},
+        "recipe_output": {100: 900, 101: 901},
+    }
+    names = {
+        900: {"id": 900, "name": "Cannot Make", "rarity": "Fine"},
+        901: {"id": 901, "name": "Can Make", "rarity": "Fine"},
+    }
+    with mock.patch("gw2.api.items_bulk", return_value=(names, set())):
+        got = items._resolve_used_in({10}, index, craftable={101})
+    assert got[10][0]["name"] == "Can Make"
+
+
+def test_used_in_is_capped_and_deduplicated():
+    index = {
+        "ingredients": {10: list(range(100, 120))},
+        # several recipes produce the same item; it should appear once
+        "recipe_output": {r: (900 if r < 110 else r) for r in range(100, 120)},
+    }
+    names = {i: {"id": i, "name": f"Out {i}", "rarity": "Fine"} for i in range(900, 921)}
+    with mock.patch("gw2.api.items_bulk", return_value=(names, set())):
+        got = items._resolve_used_in({10}, index, craftable=set())
+    outs = [e["id"] for e in got[10]]
+    assert len(outs) <= items.MAX_USED_IN
+    assert len(outs) == len(set(outs))
+
+
+def test_items_with_no_recipes_get_no_used_in_entry():
+    index = {"ingredients": {}, "recipe_output": {}}
+    with mock.patch("gw2.api.items_bulk", return_value=({}, set())):
+        assert items._resolve_used_in({10}, index, craftable=set()) == {}

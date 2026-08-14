@@ -249,6 +249,26 @@
   .tt-name { font-weight: 700; margin-bottom: 4px; }
   .tt-desc { color: var(--muted); font-size: 10px; font-style: italic; }
   .tt-type { font-size: 9px; color: var(--teal); margin-top: 4px; letter-spacing: 1px; }
+  .tt-uses { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+  .tt-uses-title {
+    font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 3px;
+  }
+  .tt-use { font-size: 10px; line-height: 1.4; }
+  .tt-more { font-size: 9px; color: var(--muted); font-style: italic; margin-top: 2px; }
+  .tt-hint {
+    margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border);
+    font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  }
+
+  /* Item name links out to the official wiki */
+  a.wiki-link { text-decoration: none; display: inline-block; }
+  a.wiki-link:hover { text-decoration: underline; }
+  a.wiki-link .ext {
+    font-size: 8px; margin-left: 4px; color: var(--muted);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .item-row:hover a.wiki-link .ext { opacity: 1; }
 
   .error-box {
     position: relative; z-index: 10; margin: 40px auto; max-width: 500px;

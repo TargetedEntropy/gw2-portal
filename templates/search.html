@@ -55,10 +55,13 @@
           {% else %}<div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>{% endif %}
         </div>
         <div>
-          <div class="item-name" style="color:{{ r.rarity_color }}">{{ r.name }}</div>
+          <a class="item-name wiki-link" style="color:{{ r.rarity_color }}"
+             href="{{ r.wiki_url }}" target="_blank" rel="noopener noreferrer"
+             title="Look up “{{ r.name }}” on the official wiki">{{ r.name }}<span class="ext">↗</span></a>
           <div class="item-type">
             {{ r.type }}{% if r.rarity %} · {{ r.rarity }}{% endif %} ·
             <span style="color:var(--muted)">{{ r.verdict }}</span>
+            {%- if r.recipe_count %} · <span style="color:var(--teal)">used in {{ r.recipe_count }} recipe{{ 's' if r.recipe_count != 1 }}</span>{% endif %}
           </div>
         </div>
         <div class="item-col" style="color:var(--muted)">× {{ r.total_count }}</div>

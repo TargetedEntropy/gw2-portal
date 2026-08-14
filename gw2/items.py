@@ -1,4 +1,14 @@
 import math
+from urllib.parse import quote
+
+# Official wiki. The ?search= form is used rather than /wiki/<Name> because
+# MediaWiki redirects an exact title match straight to the article and falls back
+# to search results otherwise — so unusual names (em dashes, punctuation) still
+# land somewhere useful instead of on a "page does not exist" stub.
+WIKI_SEARCH = "https://wiki.guildwars2.com/index.php?search="
+
+# How many "used in" entries to show before truncating.
+MAX_USED_IN = 6
 
 RARITY_ORDER = ["Junk", "Basic", "Fine", "Masterwork", "Rare", "Exotic", "Ascended", "Legendary"]
 RARITY_COLORS = {
@@ -24,6 +34,10 @@ LISTING_FEE = 0.05
 EXCHANGE_FEE = 0.10
 
 VERDICTS = ("keep", "sell", "salvage", "toss", "unknown")
+
+
+def wiki_url(name: str) -> str:
+    return WIKI_SEARCH + quote(name or "", safe="") if name else ""
 
 
 def rarity_index(rarity: str) -> int:
@@ -219,6 +233,7 @@ def enrich_slots(
     index = api.cached_recipe_index()
     recipe_signal = index is not None
     needed_for_crafting = set()
+    makes: dict[int, list[dict]] = {}
     if recipe_signal:
         craftable = api.craftable_recipe_ids()
         ingredient_map = index["ingredients"]
@@ -227,6 +242,7 @@ def enrich_slots(
             for iid in set(item_ids)
             if any(r in craftable for r in ingredient_map.get(iid, ()))
         }
+        makes = _resolve_used_in(set(item_ids), index, craftable)
 
     result = []
     for slot in slots:
@@ -261,11 +277,71 @@ def enrich_slots(
                 "type": item.get("type", ""),
                 "description": item.get("description", ""),
                 "icon": item.get("icon", ""),
+                "wiki_url": wiki_url(item.get("name") or ""),
+                "chat_link": item.get("chat_link", ""),
+                "used_in": makes.get(iid, []),
+                "recipe_count": len(index["ingredients"].get(iid, ())) if index else 0,
                 **analysis,
             }
         )
 
     return {"items": result, "failed": len(item_failed), "recipe_signal": recipe_signal}
+
+
+def _resolve_used_in(
+    item_ids: set[int], index: dict, craftable: set[int]
+) -> dict[int, list[dict]]:
+    """Map each held item to the things it can be crafted into.
+
+    Answers "what is this for?" without leaving the page. Recipes the account can
+    actually make are listed first, since those are the actionable ones.
+    """
+    from . import api
+
+    ingredient_map = index["ingredients"]
+    recipe_output = index["recipe_output"]
+
+    # Pick the outputs to show per item, then resolve every name in one bulk call.
+    picked: dict[int, list[int]] = {}
+    wanted: set[int] = set()
+    for iid in item_ids:
+        recipes = ingredient_map.get(iid) or ()
+        if not recipes:
+            continue
+        outs, seen = [], set()
+        for rid in sorted(recipes, key=lambda r: r not in craftable):
+            out = recipe_output.get(rid)
+            if out and out not in seen:
+                seen.add(out)
+                outs.append(out)
+            if len(outs) >= MAX_USED_IN:
+                break
+        if outs:
+            picked[iid] = outs
+            wanted.update(outs)
+
+    if not wanted:
+        return {}
+
+    names, _ = api.items_bulk(sorted(wanted))
+    result: dict[int, list[dict]] = {}
+    for iid, outs in picked.items():
+        entries = []
+        for out in outs:
+            detail = names.get(out)
+            if not detail:
+                continue
+            entries.append(
+                {
+                    "id": out,
+                    "name": detail.get("name") or f"Item #{out}",
+                    "rarity_color": RARITY_COLORS.get(detail.get("rarity", ""), "#ffffff"),
+                    "wiki_url": wiki_url(detail.get("name") or ""),
+                }
+            )
+        if entries:
+            result[iid] = entries
+    return result
 
 
 def group_by_verdict(enriched: list) -> dict:

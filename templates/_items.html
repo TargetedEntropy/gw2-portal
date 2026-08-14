@@ -29,10 +29,13 @@
     {% if it.count > 1 %}<div class="count-badge">{{ it.count }}</div>{% endif %}
   </div>
   <div>
-    <div class="item-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
+    <a class="item-name wiki-link" style="color:{{ it.rarity_color }}"
+       href="{{ it.wiki_url }}" target="_blank" rel="noopener noreferrer"
+       title="Look up “{{ it.name }}” on the official wiki">{{ it.name }}<span class="ext">↗</span></a>
     <div class="item-type">
       {{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}
       {%- if show_location and it.location %} · {{ it.location }}{% endif %}
+      {%- if it.recipe_count %} · <span style="color:var(--teal)">used in {{ it.recipe_count }} recipe{{ 's' if it.recipe_count != 1 }}</span>{% endif %}
     </div>
   </div>
   <div class="item-col" style="color:var(--muted)">× {{ it.count }}</div>
@@ -53,6 +56,18 @@
       Stack of {{ it.count }}: {{ it.stack_value_fmt }} gross, {{ it.net_total_fmt }} net of fees
     </div>
     {% endif %}
+    {% if it.used_in %}
+    <div class="tt-uses">
+      <div class="tt-uses-title">Ingredient in</div>
+      {% for u in it.used_in %}
+        <div class="tt-use" style="color:{{ u.rarity_color }}">{{ u.name }}</div>
+      {% endfor %}
+      {% if it.recipe_count > it.used_in|length %}
+        <div class="tt-more">+{{ it.recipe_count - it.used_in|length }} more — see the wiki</div>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="tt-hint">Click the name for the wiki</div>
   </div>
 </div>
 {% endmacro %}

@@ -58,12 +58,22 @@ def get(key: str, ttl: int = DEFAULT_TTL, default=None):
         return default
 
 
-def age(key: str) -> float | None:
-    """Seconds since the entry was written, or None if it does not exist."""
+def mtime(key: str) -> float | None:
+    """Modification time of the entry, or None if it does not exist.
+
+    Stable for a given cached value, so it works as a memo key — unlike age(),
+    which changes on every call.
+    """
     try:
-        return time.time() - os.path.getmtime(_path(key))
+        return os.path.getmtime(_path(key))
     except OSError:
         return None
+
+
+def age(key: str) -> float | None:
+    """Seconds since the entry was written, or None if it does not exist."""
+    m = mtime(key)
+    return None if m is None else time.time() - m
 
 
 def set(key: str, value):

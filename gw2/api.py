@@ -310,21 +310,42 @@ def _empty_index() -> dict:
 
 
 def _decode_index(raw: dict) -> dict:
+    outputs = {int(k): v for k, v in raw.get("outputs", {}).items()}
+    # recipe id -> the item it produces, so an ingredient can name what it makes.
+    recipe_output = {rid: out for out, rids in outputs.items() for rid in rids}
     return {
         "complete": raw.get("complete", False),
         "total": raw.get("total", 0),
         "ingredients": {int(k): v for k, v in raw.get("ingredients", {}).items()},
-        "outputs": {int(k): v for k, v in raw.get("outputs", {}).items()},
+        "outputs": outputs,
+        "recipe_output": recipe_output,
         "auto": set(raw.get("auto", [])),
     }
 
 
+_index_memo: tuple[float, dict] | None = None
+
+
 def cached_recipe_index() -> dict | None:
-    """Return the index only if a complete one is already cached. Never fetches."""
+    """Return the index only if a complete one is already cached. Never fetches.
+
+    Memoized on the cache file's mtime: decoding is ~30k dict operations over a
+    multi-megabyte payload, and it was running on every page render.
+    """
+    global _index_memo
+
+    stamp = cache.mtime(_RECIPE_KEY)
+    if stamp is None:
+        return None
+    if _index_memo is not None and _index_memo[0] == stamp:
+        return _index_memo[1]
+
     raw = cache.get(_RECIPE_KEY, ttl=86400 * 7)
     if raw is None or not raw.get("complete"):
         return None
-    return _decode_index(raw)
+    decoded = _decode_index(raw)
+    _index_memo = (stamp, decoded)
+    return decoded
 
 
 def build_recipe_index(force: bool = False) -> dict:

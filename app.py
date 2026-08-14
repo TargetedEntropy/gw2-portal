@@ -279,6 +279,8 @@ def search():
                 "type": i["type"],
                 "verdict": i["verdict"],
                 "reason": i["reason"],
+                "wiki_url": i["wiki_url"],
+                "recipe_count": i["recipe_count"],
                 "sell_price": i["sell_price"],
                 "sell_price_fmt": i["sell_price_fmt"],
                 "total_count": 0,
