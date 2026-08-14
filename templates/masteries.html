@@ -106,7 +106,19 @@
 
   <!-- Center: the list -->
   <div class="center-panel">
-    <div style="margin-bottom:16px">
+    <div class="filter-row">
+      <span class="filter-label">Region</span>
+      <a class="chip {% if not region_filter %}active{% endif %}"
+         href="{{ url_for('masteries', tier=tier_filter) }}">All</a>
+      {% for r in summary %}
+      <a class="chip {% if region_filter == r.code %}active{% endif %}"
+         href="{{ url_for('masteries', region=r.code, tier=tier_filter) }}">
+        {{ r.region }} <span style="opacity:0.6">{{ r.remaining }}</span></a>
+      {% endfor %}
+    </div>
+
+    <div class="filter-row">
+      <span class="filter-label">Difficulty</span>
       <a class="chip {% if not tier_filter %}active{% endif %}"
          href="{{ url_for('masteries', region=region_filter) }}">All</a>
       {% for t, label in tier_labels.items() %}
@@ -115,18 +127,51 @@
       {% endfor %}
     </div>
 
-    <div style="font-size:9px;color:var(--muted);margin-bottom:10px">
-      Showing {{ rows|length }} of {{ shown_total }} matching
-      {%- if shown_total > rows|length %} (capped for page size){% endif %}
+    {% if routes %}
+    <div class="section-header" style="margin-top:20px">
+      <div class="section-title" style="color:var(--teal)">ROUTE PLANNER — INSIGHTS BY MAP</div>
+      <div class="section-count">{{ routes|length }} map{{ 's' if routes|length != 1 }}</div>
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:12px">
+      Grouped so each map is one trip. Busiest first — the top rows are the most
+      points per trip.
+    </div>
+    <div class="route-grid">
+      {% for trip in routes %}
+      <div class="route-card">
+        <div class="route-head">
+          <a class="wiki-link" style="color:var(--gold-light);font-size:12px;font-weight:700"
+             href="https://wiki.guildwars2.com/index.php?search={{ trip.map | urlencode }}"
+             target="_blank" rel="noopener noreferrer">{{ trip.map }}<span class="ext">↗</span></a>
+          <span class="route-count">{{ trip.insights|length }}</span>
+        </div>
+        <div class="route-region">{{ trip.region_name }}</div>
+        {% for i in trip.insights %}
+        <a class="route-item wiki-link" href="{{ i.wiki_url }}"
+           target="_blank" rel="noopener noreferrer"
+           title="{{ i.requirement }}">{{ i.name.split(' Insight: ')[-1] }}</a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Insights already appear above as route cards; don't list them twice. #}
+    {% set listed = rows | rejectattr('tier', 'equalto', 0) | list if routes else rows %}
+
+    <div style="font-size:9px;color:var(--muted);margin:20px 0 10px">
+      Showing {{ listed|length }} of {{ shown_total }} matching
+      {%- if routes %} ({{ shown_total - listed|length }} insights shown above){% endif %}
+      {%- if shown_total > rows|length %} · capped for page size{% endif %}
     </div>
 
     {% set ns = namespace(tier=-1) %}
-    {% for r in rows %}
+    {% for r in listed %}
       {% if r.tier != ns.tier %}
         {% set ns.tier = r.tier %}
         <div class="section-header" style="margin-top:18px">
           <div class="section-title" style="color:var(--gold)">{{ r.tier_label }}</div>
-          <div class="section-count">{{ shown_total if tier_filter else rows | selectattr('tier','equalto',r.tier) | list | length }}</div>
+          <div class="section-count">{{ listed | selectattr('tier','equalto',r.tier) | list | length }}</div>
         </div>
       {% endif %}
       <div class="item-row" style="grid-template-columns:1fr 120px 90px 150px">

@@ -51,16 +51,25 @@ def test_collections_rank_below_single_steps():
 
 def test_group_content_ranks_last_regardless_of_step_count():
     """The one judgement call: a one-step raid boss is not 'easy'."""
-    for hard in ["Raids", "Fractals of the Mists", "Strike Missions", "Champions"]:
-        assert m.ease_tier(ach(category=hard), None) == 5
+    for hard in ["Raids", "Fractals of the Mists", "Strike Missions"]:
+        assert m.ease_tier(ach(group=hard), None) == 5
 
 
-def test_group_content_is_detected_from_the_group_name_too():
-    assert m.ease_tier(ach(group="Player vs. Player"), None) == 5
+def test_hardness_keys_on_the_group_not_the_category():
+    """A raid wing's category is its own name ("Spirit Vale"); the group says Raids."""
+    assert m.ease_tier(ach(category="Spirit Vale", group="Raids"), None) == 5
 
 
-def test_hard_content_detection_is_case_insensitive():
-    assert m.ease_tier(ach(category="RAIDS"), None) == 5
+def test_champions_story_chapter_is_not_treated_as_group_content():
+    """Regression: "Champions" is an Icebrood Saga chapter, not champion bounties.
+
+    A substring match on category+group filed all 19 of its achievements as
+    raid-tier -- including walk-up insights, which are the easiest thing there is.
+    """
+    entry = ach(name="Champions Insight: Lake Doric", category="Champions",
+                group="Story Journal",
+                requirement="Discover this Icebrood Saga Mastery Insight in Lake Doric.")
+    assert m.ease_tier(entry, None) == 0
 
 
 def test_progress_still_outranks_hard_content():
@@ -155,3 +164,122 @@ def test_completed_count_only_counts_point_granting_achievements():
 def test_region_code_mapping_round_trips():
     for name, code in m.REGION_CODES.items():
         assert m.REGION_NAMES[code] == name
+
+
+# --- Insight detection and map extraction -----------------------------------
+
+def test_insight_detected_from_its_own_category():
+    assert m.is_insight(ach(category=m.INSIGHT_CATEGORY))
+
+
+def test_insight_detected_from_the_name_when_filed_under_a_story_chapter():
+    assert m.is_insight(ach(name="Amnytas Insight: The Arboretum", category="Amnytas"))
+
+
+def test_insight_detected_from_the_requirement_when_the_name_gives_nothing():
+    """"Thirsty Tourist" is an insight; only its requirement says so."""
+    entry = ach(name="Thirsty Tourist",
+                requirement="Discover this End of Dragons Mastery Insight in Dragon's End.")
+    assert m.is_insight(entry)
+
+
+def test_ordinary_achievements_are_not_insights():
+    assert not m.is_insight(ach(name="Dungeons Discovered",
+                                requirement="Complete 8 dungeon stories."))
+
+
+def test_map_comes_from_the_requirement():
+    entry = ach(name="Mistburned Barrens Insight: Alliance Staging",
+                requirement="Discover this Janthir Wilds Mastery Insight in Mistburned Barrens.")
+    assert m.insight_map(entry) == "Mistburned Barrens"
+
+
+def test_map_falls_back_to_the_name_prefix_when_the_requirement_is_silent():
+    assert m.insight_map(ach(name="Mistburned Barrens Insight: Alliance Staging")) \
+        == "Mistburned Barrens"
+
+
+def test_requirement_beats_the_name_when_the_name_is_a_story_chapter():
+    """"Champions Insight: Lake Doric" is in Lake Doric, not a map called Champions."""
+    entry = ach(name="Champions Insight: Lake Doric", category="Champions",
+                requirement="Discover this Icebrood Saga Mastery Insight in Lake Doric.")
+    assert m.insight_map(entry) == "Lake Doric"
+
+
+def test_requirement_beats_the_name_when_the_name_abbreviates():
+    entry = ach(name="New Kaineng Insight: Jade Monument",
+                requirement="Discover this End of Dragons Mastery Insight in New Kaineng City.")
+    assert m.insight_map(entry) == "New Kaineng City"
+
+
+def test_trailing_directions_are_trimmed_from_the_map_name():
+    entry = ach(name="Champions Insight: Fields of Ruin",
+                requirement=("Discover this Icebrood Saga Mastery Insight in Fields of Ruin "
+                             "Dragon Response Mission, accessed via asura gate in Eye of the North."))
+    assert m.insight_map(entry) == "Fields of Ruin Dragon Response Mission"
+
+
+def test_map_fallback_strips_a_leading_the():
+    entry = ach(name="Odd One",
+                requirement="Discover this Crystal Desert Mastery Insight in the Domain of Vabbi.")
+    assert m.insight_map(entry) == "Domain of Vabbi"
+
+
+def test_map_is_blank_when_nothing_identifies_it():
+    assert m.insight_map(ach(name="Mystery", requirement="Do a thing.")) == ""
+
+
+# --- Route planning ----------------------------------------------------------
+
+def _insights(*specs):
+    out = []
+    for i, (map_name, label) in enumerate(specs):
+        out.append(ach(id=i + 1, name=f"{map_name} Insight: {label}",
+                       category=m.INSIGHT_CATEGORY, region="Sky"))
+    return out
+
+
+def test_insights_cluster_by_map_so_the_list_reads_as_a_route():
+    rows = m.remaining_points(
+        _insights(("Amnytas", "B"), ("Skywatch", "A"), ("Amnytas", "A")),
+        [], ALL_REGIONS,
+    )
+    assert [r["map"] for r in rows] == ["Amnytas", "Amnytas", "Skywatch"]
+
+
+def test_routes_group_insights_per_map():
+    rows = m.remaining_points(_insights(("Amnytas", "A"), ("Amnytas", "B")), [], ALL_REGIONS)
+    trips = m.routes_by_map(rows)
+    assert len(trips) == 1
+    assert trips[0]["map"] == "Amnytas" and len(trips[0]["insights"]) == 2
+
+
+def test_busiest_map_comes_first_because_it_is_the_best_trip():
+    rows = m.remaining_points(
+        _insights(("Solo", "A"), ("Busy", "A"), ("Busy", "B"), ("Busy", "C")),
+        [], ALL_REGIONS,
+    )
+    trips = m.routes_by_map(rows)
+    assert [t["map"] for t in trips] == ["Busy", "Solo"]
+
+
+def test_routes_ignore_non_insight_rows():
+    rows = m.remaining_points(
+        [ach(id=1, name="Dungeons Discovered")] + _insights(("Amnytas", "A")),
+        [], ALL_REGIONS,
+    )
+    trips = m.routes_by_map(rows)
+    assert len(trips) == 1 and trips[0]["map"] == "Amnytas"
+
+
+def test_unlocatable_insights_still_get_a_bucket():
+    rows = m.remaining_points(
+        [ach(id=1, name="Mystery", category=m.INSIGHT_CATEGORY, requirement="Do a thing.")],
+        [], ALL_REGIONS,
+    )
+    assert m.routes_by_map(rows)[0]["map"] == "Unknown location"
+
+
+def test_only_insights_carry_a_map():
+    rows = m.remaining_points([ach(id=1, name="Dungeons Discovered")], [], ALL_REGIONS)
+    assert rows[0]["map"] == ""

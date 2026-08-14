@@ -170,6 +170,42 @@
   }
   .stack-note { font-size: 8px; color: var(--muted); opacity: 0.7; margin-top: 1px; }
 
+  /* FILTER ROWS */
+  .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .filter-label {
+    font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold); width: 68px; flex-shrink: 0;
+  }
+
+  /* ROUTE PLANNER */
+  .route-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 8px; margin-bottom: 8px;
+  }
+  .route-card {
+    border: 1px solid var(--border); background: var(--surface);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .route-card:hover { border-color: var(--border2); }
+  .route-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .route-count {
+    font-family: 'Courier New', monospace; font-size: 14px; font-weight: 700;
+    color: var(--teal); flex-shrink: 0;
+  }
+  .route-region {
+    font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 5px;
+  }
+  a.route-item {
+    display: block; font-size: 10px; color: var(--cream); text-decoration: none;
+    padding: 2px 0 2px 9px; position: relative; line-height: 1.35;
+  }
+  a.route-item::before {
+    content: '◆'; position: absolute; left: 0; top: 2px;
+    font-size: 6px; color: var(--teal);
+  }
+  a.route-item:hover { color: var(--gold-light); }
+
   .item-grid { display: flex; flex-direction: column; gap: 4px; }
   .item-row {
     display: grid;

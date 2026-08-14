@@ -300,10 +300,13 @@ def masteries():
         shown = [r for r in shown if r["tier"] == int(tier_filter)]
 
     summary = gw2_masteries.region_summary(points, remaining)
+    # Insights get a per-map route view; everything else stays a ranked list.
+    routes = gw2_masteries.routes_by_map(shown) if tier_filter in ("", "0") else []
     return render_template(
         "masteries.html",
         building=False,
         summary=summary,
+        routes=routes,
         rows=shown[:400],
         shown_total=len(shown),
         remaining_total=len(remaining),
@@ -313,6 +316,7 @@ def masteries():
         region_filter=region_filter,
         tier_filter=tier_filter,
         tier_labels=gw2_masteries.TIER_LABELS,
+        region_names=gw2_masteries.REGION_NAMES,
     )
 
 
