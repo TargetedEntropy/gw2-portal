@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_items.html" as ui %}
 {% block title %}{{ char_name }} — Inventory{% endblock %}
 
 {% block content %}
 {% set keep_items = grouped.keep %}
 {% set sell_items = grouped.sell %}
-{% set toss_items = grouped.toss %}
+{% set toss_items = grouped.toss + grouped.salvage %}
 
 <div class="char-header">
   <div class="char-portrait">⚔</div>
@@ -16,7 +17,7 @@
       Age: {{ (char.get('age', 0) // 3600) }}h played
     </div>
     <div style="margin-top:6px">
-      <a href="/" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Account</a>
+      <a href="{{ url_for('index') }}" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Account</a>
     </div>
   </div>
   <div class="char-stats">
@@ -66,6 +67,8 @@
 
   <!-- Center: Inventory analysis -->
   <div class="center-panel">
+    {{ ui.warnings(failed, recipe_signal) }}
+
     <div class="summary-grid">
       <div class="summary-box">
         <div class="sb-val-big" style="color:var(--keep-green)">{{ keep_items|length }}</div>
@@ -77,58 +80,11 @@
       </div>
       <div class="summary-box">
         <div class="sb-val-big" style="color:var(--toss-red)">{{ toss_items|length }}</div>
-        <div class="sb-label-sm">Vendor / Toss</div>
+        <div class="sb-label-sm">Vendor / Salvage</div>
       </div>
     </div>
 
-    {% for verdict, label, cls in [('sell','SELL ON TRADING POST','verdict-sell'), ('keep','KEEP','verdict-keep'), ('toss','VENDOR / SALVAGE','verdict-toss')] %}
-    {% set group = grouped[verdict] %}
-    {% if group %}
-    <div class="item-section {{ cls }}">
-      <div class="section-header">
-        <div class="section-title">{{ label }}</div>
-        <div class="section-count">{{ group|length }} item{{ 's' if group|length != 1 }}</div>
-      </div>
-      <div class="col-header">
-        <div></div>
-        <div>Item</div>
-        <div class="col-r">Count</div>
-        <div class="col-r">TP Sell</div>
-        <div class="col-r">Vendor</div>
-        <div class="col-r">Reason</div>
-      </div>
-      <div class="item-grid">
-        {% for it in group %}
-        <div class="item-row">
-          <div class="item-icon">
-            {% if it.icon %}
-              <img src="{{ it.icon }}" alt="">
-            {% else %}
-              <div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>
-            {% endif %}
-            {% if it.count > 1 %}<div class="count-badge">{{ it.count }}</div>{% endif %}
-          </div>
-          <div>
-            <div class="item-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            <div class="item-type">{{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}</div>
-          </div>
-          <div class="item-col" style="color:var(--muted)">× {{ it.count }}</div>
-          <div class="item-col" style="color:var(--sell-gold)">{{ it.sell_price_fmt if it.sell_price else '—' }}</div>
-          <div class="item-col" style="color:var(--muted)">{{ it.vendor_value_fmt if it.vendor_value else '—' }}</div>
-          <div class="item-reason">{{ it.reason }}</div>
-          <div class="item-tooltip">
-            <div class="tt-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            {% if it.description %}<div class="tt-desc">{{ it.description | striptags }}</div>{% endif %}
-            <div class="tt-type">{{ it.type }} · {{ it.rarity }}</div>
-            <div style="margin-top:6px;font-size:9px;color:var(--muted)">Verdict: <span style="color:{% if it.verdict=='keep'%}var(--keep-green){% elif it.verdict=='sell'%}var(--sell-gold){% else %}var(--toss-red){% endif %}">{{ it.verdict.upper() }}</span></div>
-            <div style="font-size:9px;color:var(--muted)">{{ it.reason }}</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-    {% endfor %}
+    {{ ui.verdict_sections(grouped) }}
 
     {% if not all_items %}
     <div style="text-align:center;padding:40px;color:var(--muted);font-size:12px">
@@ -141,30 +97,25 @@
   <div class="right-panel">
     <div class="panel-block">
       <div class="pb-title">SELL POTENTIAL</div>
-      {% set total_sell = namespace(val=0) %}
-      {% for it in sell_items %}
-        {% set total_sell.val = total_sell.val + (it.sell_price * it.count) %}
-      {% endfor %}
       <div style="font-size:20px;font-weight:900;color:var(--sell-gold)">
-        {{ (total_sell.val * 0.85) | int | string | replace('.0','') }}c
+        {{ totals.sell_net | gold }}
       </div>
-      <div style="font-size:9px;color:var(--muted);margin-top:4px">Est. after 15% TP fees</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px">
+        Net of the 15% TP fees, minus vendor value.<br>
+        Gross listings: {{ totals.sell_gross | gold }}
+      </div>
     </div>
 
     <div class="panel-block">
       <div class="pb-title">BY TYPE</div>
-      {% set types = {} %}
-      {% for it in all_items %}
-        {% set t = it.type or 'Unknown' %}
-      {% endfor %}
-      <div style="font-size:10px;color:var(--muted)">
-        Armor: {{ all_items | selectattr('type','equalto','Armor') | list | length }}<br>
-        Weapon: {{ all_items | selectattr('type','equalto','Weapon') | list | length }}<br>
-        Consumable: {{ all_items | selectattr('type','equalto','Consumable') | list | length }}<br>
-        CraftingMaterial: {{ all_items | selectattr('type','equalto','CraftingMaterial') | list | length }}<br>
-        Trophy: {{ all_items | selectattr('type','equalto','Trophy') | list | length }}<br>
-        Trinket: {{ all_items | selectattr('type','equalto','Trinket') | list | length }}<br>
-        Bag: {{ all_items | selectattr('type','equalto','Bag') | list | length }}
+      <div style="font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:3px">
+        {% for name, n in type_counts %}
+        <div style="display:flex;justify-content:space-between">
+          <span>{{ name }}</span><span style="color:var(--cream)">{{ n }}</span>
+        </div>
+        {% else %}
+        <div>No items</div>
+        {% endfor %}
       </div>
     </div>
 

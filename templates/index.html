@@ -8,7 +8,7 @@
     <div class="char-name">{{ account.name }}</div>
     <div class="char-sub">Tyrian Commander · Guild Wars 2</div>
     <div class="char-detail">
-      World: {{ account.world }} &nbsp;·&nbsp;
+      World: {{ world }} &nbsp;·&nbsp;
       Created: {{ account.created[:10] if account.created else 'unknown' }} &nbsp;·&nbsp;
       {{ char_names|length }} Characters
     </div>
@@ -40,7 +40,7 @@
       <div class="pb-title">CHARACTERS <span style="color:var(--muted)">{{ char_names|length }}</span></div>
       <div class="char-list">
         {% for name in char_names %}
-        <a href="/inventory/{{ name | urlencode }}" class="char-item">
+        <a href="{{ url_for('inventory', char_name=name) }}" class="char-item">
           <div>
             <div class="char-item-name">{{ name }}</div>
           </div>
@@ -53,6 +53,14 @@
 
   <!-- Center: Wallet breakdown -->
   <div class="center-panel">
+    {% if not index_ready %}
+    <div class="banner info">
+      <strong>Recipe index is building in the background.</strong>
+      It runs once and takes a minute or two. Until it finishes, item verdicts don't
+      yet account for recipes you can craft.
+    </div>
+    {% endif %}
+
     <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">WALLET</div>
     <div class="wallet-grid">
       {% for c in wallet %}
@@ -68,11 +76,14 @@
 
     <div style="margin-top:32px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">QUICK ACTIONS</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a href="/bank" style="padding:8px 16px;border:1px solid var(--gold);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--gold)">
-        Analyse Bank →
+      <a href="{{ url_for('bank') }}" style="padding:8px 16px;border:1px solid var(--gold);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--gold)">
+        Analyse Storage →
+      </a>
+      <a href="{{ url_for('search', verdict='sell') }}" style="padding:8px 16px;border:1px solid var(--sell-gold);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--sell-gold)">
+        Everything to sell →
       </a>
       {% for name in char_names[:3] %}
-      <a href="/inventory/{{ name | urlencode }}" style="padding:8px 16px;border:1px solid var(--border2);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--muted)">
+      <a href="{{ url_for('inventory', char_name=name) }}" style="padding:8px 16px;border:1px solid var(--border2);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--muted)">
         {{ name }} →
       </a>
       {% endfor %}

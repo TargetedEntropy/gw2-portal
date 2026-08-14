@@ -1,0 +1,104 @@
+{# Shared item rendering. The inventory and bank pages previously carried two
+   near-identical copies of this markup, so a fix to one silently missed the other. #}
+
+{% set VERDICT_LABELS = [
+  ('sell',    'SELL ON TRADING POST', 'verdict-sell'),
+  ('keep',    'KEEP',                 'verdict-keep'),
+  ('salvage', 'SALVAGE',              'verdict-salvage'),
+  ('toss',    'VENDOR / DESTROY',     'verdict-toss'),
+  ('unknown', 'DATA UNAVAILABLE',     'verdict-unknown'),
+] %}
+
+{% macro verdict_color(v) -%}
+{%- if v == 'keep' -%}var(--keep-green)
+{%- elif v == 'sell' -%}var(--sell-gold)
+{%- elif v == 'salvage' -%}var(--salvage-teal)
+{%- elif v == 'unknown' -%}var(--unknown-grey)
+{%- else -%}var(--toss-red)
+{%- endif -%}
+{%- endmacro %}
+
+{% macro item_row(it, show_location=False) %}
+<div class="item-row">
+  <div class="item-icon">
+    {% if it.icon %}
+      <img src="{{ it.icon }}" alt="">
+    {% else %}
+      <div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>
+    {% endif %}
+    {% if it.count > 1 %}<div class="count-badge">{{ it.count }}</div>{% endif %}
+  </div>
+  <div>
+    <div class="item-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
+    <div class="item-type">
+      {{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}
+      {%- if show_location and it.location %} · {{ it.location }}{% endif %}
+    </div>
+  </div>
+  <div class="item-col" style="color:var(--muted)">× {{ it.count }}</div>
+  <div class="item-col" style="color:var(--sell-gold)">{{ it.sell_price_fmt if it.sell_price else '—' }}</div>
+  <div class="item-col" style="color:var(--muted)">{{ it.vendor_value_fmt if it.vendor_value else '—' }}</div>
+  <div class="item-reason">{{ it.reason }}</div>
+  <div class="item-tooltip">
+    <div class="tt-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
+    {% if it.description %}<div class="tt-desc">{{ it.description | striptags }}</div>{% endif %}
+    <div class="tt-type">{{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}</div>
+    <div style="margin-top:6px;font-size:9px;color:var(--muted)">
+      Verdict: <span style="color:{{ verdict_color(it.verdict) }}">{{ it.verdict.upper() }}</span>
+    </div>
+    <div style="font-size:9px;color:var(--muted)">{{ it.reason }}</div>
+    {% if it.sell_price or it.buy_price %}
+    <div style="margin-top:6px;font-size:9px;color:var(--muted)">
+      TP sell {{ it.sell_price_fmt }} · TP buy {{ it.buy_price_fmt }}<br>
+      Stack of {{ it.count }}: {{ it.stack_value_fmt }} gross, {{ it.net_total_fmt }} net of fees
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro col_header(noun='Item') %}
+<div class="col-header">
+  <div></div>
+  <div>{{ noun }}</div>
+  <div class="col-r">Count</div>
+  <div class="col-r">TP Sell</div>
+  <div class="col-r">Vendor</div>
+  <div class="col-r">Reason</div>
+</div>
+{% endmacro %}
+
+{% macro verdict_sections(grouped, noun='item', show_location=False) %}
+{% for verdict, label, cls in VERDICT_LABELS %}
+  {% set group = grouped.get(verdict) or [] %}
+  {% if group %}
+  <div class="item-section {{ cls }}">
+    <div class="section-header">
+      <div class="section-title">{{ label }}</div>
+      <div class="section-count">{{ group|length }} {{ noun }}{{ 's' if group|length != 1 }}</div>
+    </div>
+    {{ col_header(noun|capitalize) }}
+    <div class="item-grid">
+      {% for it in group %}{{ item_row(it, show_location) }}{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro warnings(failed, recipe_signal) %}
+{% if failed %}
+<div class="banner">
+  <strong>{{ failed }} item{{ 's' if failed != 1 }} could not be loaded from the GW2 API.</strong>
+  They are listed under “Data unavailable” rather than being given a verdict — a
+  failed lookup is not evidence an item is worthless. Reload once the API recovers.
+</div>
+{% endif %}
+{% if not recipe_signal %}
+<div class="banner info">
+  <strong>Recipe index is still building.</strong>
+  Until it finishes, items are not checked against recipes you can craft, so some
+  crafting ingredients may show as sell or vendor. Everything else is accurate.
+</div>
+{% endif %}
+{% endmacro %}

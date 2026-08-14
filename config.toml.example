@@ -1,8 +1,26 @@
 [gw2]
+# Needs these permissions: account, wallet, characters, inventories, unlocks
+# Create one at https://account.arena.net/applications
 api_key = "YOUR-API-KEY-HERE"
 
 [analysis]
-# Copper profit threshold: TP sell * 0.85 - vendor_value must exceed this to recommend "sell"
+# Copper profit threshold. Judged on the WHOLE STACK, not per unit, so 250
+# materials worth 40c each clear a 100c bar even though no single unit does.
 sell_threshold_copper = 100
-# Rarity level at or above which items are auto-kept (0=Junk,1=Basic,2=Fine,3=Masterwork,4=Rare,5=Exotic,6=Ascended,7=Legendary)
+# Rarity at or above which items are auto-kept
+# (0=Junk,1=Basic,2=Fine,3=Masterwork,4=Rare,5=Exotic,6=Ascended,7=Legendary)
 keep_rarity_min = 4
+# "sell" = the listing price (undercut and wait). "buy" = the standing bid you
+# can take instantly. Thin markets have a wide spread, so "buy" is the honest
+# basis if you want advice you can act on immediately.
+price_basis = "sell"
+
+[server]
+host = "127.0.0.1"
+port = 5000
+# Requests with any other Host header are rejected, which blocks DNS rebinding.
+allowed_hosts = ["127.0.0.1:5000", "localhost:5000"]
+# Upstream budget. The GW2 API allows 300 requests/minute burst refilling at
+# 5/second, enforced per IP — so it is shared with anything else on this host.
+api_rate_per_sec = 4.0
+api_burst = 100

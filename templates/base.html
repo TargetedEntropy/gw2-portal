@@ -21,6 +21,8 @@
     --keep-green: #1a9306;
     --sell-gold: #fcd00b;
     --toss-red: #c0392b;
+    --salvage-teal: #1ea89a;
+    --unknown-grey: #777777;
     /* rarity */
     --r-junk: #aaaaaa;
     --r-basic: #ffffff;
@@ -130,6 +132,42 @@
   .verdict-keep .section-title { color: var(--keep-green); }
   .verdict-sell .section-title { color: var(--sell-gold); }
   .verdict-toss .section-title { color: var(--toss-red); }
+  .verdict-salvage .section-title { color: var(--salvage-teal); }
+  .verdict-unknown .section-title { color: var(--unknown-grey); }
+
+  /* BANNERS */
+  .banner {
+    border: 1px solid var(--ember); background: rgba(224,96,48,0.1);
+    padding: 10px 14px; margin-bottom: 16px; font-size: 11px; line-height: 1.5;
+  }
+  .banner strong { color: var(--ember); }
+  .banner.info { border-color: var(--border2); background: rgba(200,168,75,0.06); }
+  .banner.info strong { color: var(--gold); }
+
+  /* SEARCH */
+  .search-form { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .search-form input[type=text] {
+    flex: 1; min-width: 200px; background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border2); color: var(--cream);
+    padding: 8px 12px; font-family: 'Georgia', serif; font-size: 12px;
+  }
+  .search-form input[type=text]:focus { outline: none; border-color: var(--gold); }
+  .search-form button {
+    background: transparent; border: 1px solid var(--gold); color: var(--gold);
+    padding: 8px 18px; font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase; cursor: pointer; font-family: 'Georgia', serif;
+  }
+  .search-form button:hover { background: rgba(200,168,75,0.1); }
+  .chip {
+    display: inline-block; padding: 4px 10px; margin-right: 6px;
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+    border: 1px solid var(--border2); color: var(--muted); text-decoration: none;
+  }
+  .chip.active { border-color: var(--gold); color: var(--gold-light); }
+  .loc-tag {
+    display: inline-block; font-size: 9px; color: var(--muted);
+    border: 1px solid var(--border); padding: 1px 6px; margin: 1px 2px 1px 0;
+  }
 
   .item-grid { display: flex; flex-direction: column; gap: 4px; }
   .item-row {
@@ -160,6 +198,8 @@
   .v-keep { color: var(--keep-green); border-color: var(--keep-green); }
   .v-sell { color: var(--sell-gold); border-color: var(--sell-gold); }
   .v-toss { color: var(--toss-red); border-color: var(--toss-red); }
+  .v-salvage { color: var(--salvage-teal); border-color: var(--salvage-teal); }
+  .v-unknown { color: var(--unknown-grey); border-color: var(--unknown-grey); }
   .item-reason { font-size: 9px; color: var(--muted); }
 
   .col-header {
@@ -225,8 +265,9 @@
 
 <nav class="site-nav">
   <div class="nav-brand">GW2 <span>PORTAL</span></div>
-  <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Account</a>
-  <a href="/bank" class="nav-link {% if request.path == '/bank' %}active{% endif %}">Bank</a>
+  <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Account</a>
+  <a href="{{ url_for('bank') }}" class="nav-link {% if request.endpoint == 'bank' %}active{% endif %}">Bank</a>
+  <a href="{{ url_for('search') }}" class="nav-link {% if request.endpoint == 'search' %}active{% endif %}">Search</a>
 </nav>
 
 {% block content %}{% endblock %}

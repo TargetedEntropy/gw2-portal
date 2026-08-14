@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Search — GW2 Portal{% endblock %}
+
+{% block content %}
+<div class="char-header">
+  <div class="char-portrait">🔍</div>
+  <div class="char-meta">
+    <div class="char-name">Account Search</div>
+    <div class="char-sub">Every character · Bank · Materials · Shared slots</div>
+    <div class="char-detail">
+      {{ rows|length }} distinct item{{ 's' if rows|length != 1 }} matched
+      {%- if q %} for “{{ q }}”{% endif %}
+    </div>
+  </div>
+  <div class="char-stats">
+    <div class="stat-bar">
+      <div class="sb-icon">💰</div>
+      <div class="sb-label">Listed</div>
+      <div class="sb-val" style="color:var(--gold-light)">{{ grand_total | gold }}</div>
+    </div>
+    <div class="stat-bar">
+      <div class="sb-icon">📈</div>
+      <div class="sb-label">Net</div>
+      <div class="sb-val" style="color:var(--sell-gold)">{{ account_totals.sell_net | gold }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="char-layout" style="grid-template-columns:1fr">
+  <div class="center-panel">
+    <form class="search-form" method="get" action="{{ url_for('search') }}">
+      <input type="text" name="q" value="{{ q }}" placeholder="Item name — leave blank to list everything" autofocus>
+      {% if verdict_filter %}<input type="hidden" name="verdict" value="{{ verdict_filter }}">{% endif %}
+      <button type="submit">Search</button>
+    </form>
+
+    <div style="margin-bottom:18px">
+      <a class="chip {% if not verdict_filter %}active{% endif %}"
+         href="{{ url_for('search', q=q) }}">All</a>
+      {% for v in verdicts %}
+      <a class="chip {% if verdict_filter == v %}active{% endif %}"
+         href="{{ url_for('search', q=q, verdict=v) }}">{{ v }}</a>
+      {% endfor %}
+    </div>
+
+    {% if rows %}
+    <div class="col-header" style="grid-template-columns:36px 1fr 90px 100px 1fr">
+      <div></div><div>Item</div><div class="col-r">Total</div><div class="col-r">Stack value</div><div>Held in</div>
+    </div>
+    <div class="item-grid">
+      {% for r in rows %}
+      <div class="item-row" style="grid-template-columns:36px 1fr 90px 100px 1fr">
+        <div class="item-icon">
+          {% if r.icon %}<img src="{{ r.icon }}" alt="">
+          {% else %}<div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>{% endif %}
+        </div>
+        <div>
+          <div class="item-name" style="color:{{ r.rarity_color }}">{{ r.name }}</div>
+          <div class="item-type">
+            {{ r.type }}{% if r.rarity %} · {{ r.rarity }}{% endif %} ·
+            <span style="color:var(--muted)">{{ r.verdict }}</span>
+          </div>
+        </div>
+        <div class="item-col" style="color:var(--muted)">× {{ r.total_count }}</div>
+        <div class="item-col" style="color:var(--sell-gold)">
+          {{ r.total_value | gold if r.total_value else '—' }}
+        </div>
+        <div>
+          {% for loc in r.locations %}
+          <span class="loc-tag">{{ loc.where }} × {{ loc.count }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:12px">
+      {% if q or verdict_filter %}
+        Nothing matched. Try a shorter search term.
+      {% else %}
+        No items found on this account.
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

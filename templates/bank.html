@@ -1,195 +1,102 @@
 {% extends "base.html" %}
-{% block title %}Bank & Materials — GW2 Portal{% endblock %}
+{% import "_items.html" as ui %}
+{% block title %}Bank & Storage — GW2 Portal{% endblock %}
 
 {% block content %}
 <div class="char-header">
   <div class="char-portrait">🏦</div>
   <div class="char-meta">
-    <div class="char-name">Account Bank</div>
-    <div class="char-sub">Bank Tabs · Material Storage</div>
+    <div class="char-name">Account Storage</div>
+    <div class="char-sub">Bank · Material Storage · Shared Slots</div>
     <div class="char-detail">
-      Bank: {{ bank_all|length }} items &nbsp;·&nbsp; Materials: {{ mats_all|length }} types
+      {% for s in sections %}{{ s.label }}: {{ s.entries|length }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
     </div>
     <div style="margin-top:6px">
-      <a href="/" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Account</a>
+      <a href="{{ url_for('index') }}" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Account</a>
     </div>
   </div>
   <div class="char-stats">
     <div class="stat-bar">
-      <div class="sb-icon">🟢</div>
-      <div class="sb-label">Keep</div>
-      <div class="sb-val" style="color:var(--keep-green)">{{ bank_grouped.keep|length + mats_grouped.keep|length }}</div>
+      <div class="sb-icon">🟢</div><div class="sb-label">Keep</div>
+      <div class="sb-val" style="color:var(--keep-green)">{{ overall.keep }}</div>
     </div>
     <div class="stat-bar">
-      <div class="sb-icon">🟡</div>
-      <div class="sb-label">Sell</div>
-      <div class="sb-val" style="color:var(--sell-gold)">{{ bank_grouped.sell|length + mats_grouped.sell|length }}</div>
+      <div class="sb-icon">🟡</div><div class="sb-label">Sell</div>
+      <div class="sb-val" style="color:var(--sell-gold)">{{ overall.sell }}</div>
     </div>
     <div class="stat-bar">
-      <div class="sb-icon">🔴</div>
-      <div class="sb-label">Toss</div>
-      <div class="sb-val" style="color:var(--toss-red)">{{ bank_grouped.toss|length + mats_grouped.toss|length }}</div>
+      <div class="sb-icon">🔴</div><div class="sb-label">Toss</div>
+      <div class="sb-val" style="color:var(--toss-red)">{{ overall.toss }}</div>
     </div>
   </div>
 </div>
 
 <div class="char-layout">
-  <!-- Left: Summary -->
+  <!-- Left: Per-section summary -->
   <div class="left-panel">
+    {% for s in sections %}
     <div class="panel-block">
-      <div class="pb-title">BANK SUMMARY</div>
-      <div class="summary-grid" style="grid-template-columns:1fr 1fr;gap:6px;margin-bottom:0">
+      <div class="pb-title">{{ s.label | upper }}</div>
+      <div class="summary-grid" style="grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
         <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--keep-green);font-size:16px">{{ bank_grouped.keep|length }}</div>
+          <div class="sb-val-big" style="color:var(--keep-green);font-size:16px">{{ s.grouped.keep|length }}</div>
           <div class="sb-label-sm">Keep</div>
         </div>
         <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--sell-gold);font-size:16px">{{ bank_grouped.sell|length }}</div>
+          <div class="sb-val-big" style="color:var(--sell-gold);font-size:16px">{{ s.grouped.sell|length }}</div>
           <div class="sb-label-sm">Sell</div>
         </div>
         <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--toss-red);font-size:16px">{{ bank_grouped.toss|length }}</div>
+          <div class="sb-val-big" style="color:var(--toss-red);font-size:16px">{{ (s.grouped.toss + s.grouped.salvage)|length }}</div>
           <div class="sb-label-sm">Toss</div>
         </div>
         <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--gold-light);font-size:16px">{{ bank_all|length }}</div>
+          <div class="sb-val-big" style="color:var(--gold-light);font-size:16px">{{ s.entries|length }}</div>
           <div class="sb-label-sm">Total</div>
         </div>
       </div>
+      <div style="font-size:9px;color:var(--muted)">Sell potential, net of fees</div>
+      <div style="font-size:14px;font-weight:900;color:var(--sell-gold)">{{ s.totals.sell_net | gold }}</div>
     </div>
-
-    <div class="panel-block">
-      <div class="pb-title">MATERIALS SUMMARY</div>
-      <div class="summary-grid" style="grid-template-columns:1fr 1fr;gap:6px;margin-bottom:0">
-        <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--keep-green);font-size:16px">{{ mats_grouped.keep|length }}</div>
-          <div class="sb-label-sm">Keep</div>
-        </div>
-        <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--sell-gold);font-size:16px">{{ mats_grouped.sell|length }}</div>
-          <div class="sb-label-sm">Sell</div>
-        </div>
-        <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--toss-red);font-size:16px">{{ mats_grouped.toss|length }}</div>
-          <div class="sb-label-sm">Toss</div>
-        </div>
-        <div class="summary-box">
-          <div class="sb-val-big" style="color:var(--gold-light);font-size:16px">{{ mats_all|length }}</div>
-          <div class="sb-label-sm">Types</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel-block">
-      <div class="pb-title">SELL POTENTIAL</div>
-      {% set total_bank_sell = namespace(val=0) %}
-      {% for it in bank_grouped.sell %}{% set total_bank_sell.val = total_bank_sell.val + (it.sell_price * it.count) %}{% endfor %}
-      {% set total_mats_sell = namespace(val=0) %}
-      {% for it in mats_grouped.sell %}{% set total_mats_sell.val = total_mats_sell.val + (it.sell_price * it.count) %}{% endfor %}
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Bank</div>
-      <div style="font-size:18px;font-weight:900;color:var(--sell-gold);margin-bottom:10px">
-        {{ ((total_bank_sell.val * 0.85) | int) }}c
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Materials</div>
-      <div style="font-size:18px;font-weight:900;color:var(--sell-gold)">
-        {{ ((total_mats_sell.val * 0.85) | int) }}c
-      </div>
-    </div>
+    {% endfor %}
   </div>
 
   <!-- Center: Item tables -->
   <div class="center-panel">
-    <!-- BANK section -->
-    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:6px;border-bottom:1px solid var(--border2)">BANK TABS</div>
+    {{ ui.warnings(failed, recipe_signal) }}
 
-    {% for verdict, label, cls in [('sell','SELL ON TRADING POST','verdict-sell'), ('keep','KEEP','verdict-keep'), ('toss','VENDOR / SALVAGE','verdict-toss')] %}
-    {% set group = bank_grouped[verdict] %}
-    {% if group %}
-    <div class="item-section {{ cls }}">
-      <div class="section-header">
-        <div class="section-title">{{ label }}</div>
-        <div class="section-count">{{ group|length }} item{{ 's' if group|length != 1 }}</div>
+    {% for s in sections %}
+      <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);{% if not loop.first %}margin-top:32px;{% endif %}margin-bottom:16px;padding-bottom:6px;border-bottom:1px solid var(--border2)">
+        {{ s.label | upper }}
       </div>
-      <div class="col-header">
-        <div></div><div>Item</div><div class="col-r">Count</div><div class="col-r">TP Sell</div><div class="col-r">Vendor</div><div class="col-r">Reason</div>
-      </div>
-      <div class="item-grid">
-        {% for it in group %}
-        <div class="item-row">
-          <div class="item-icon">
-            {% if it.icon %}<img src="{{ it.icon }}" alt="">{% else %}<div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>{% endif %}
-            {% if it.count > 1 %}<div class="count-badge">{{ it.count }}</div>{% endif %}
-          </div>
-          <div>
-            <div class="item-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            <div class="item-type">{{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}</div>
-          </div>
-          <div class="item-col" style="color:var(--muted)">× {{ it.count }}</div>
-          <div class="item-col" style="color:var(--sell-gold)">{{ it.sell_price_fmt if it.sell_price else '—' }}</div>
-          <div class="item-col" style="color:var(--muted)">{{ it.vendor_value_fmt if it.vendor_value else '—' }}</div>
-          <div class="item-reason">{{ it.reason }}</div>
-          <div class="item-tooltip">
-            <div class="tt-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            {% if it.description %}<div class="tt-desc">{{ it.description | striptags }}</div>{% endif %}
-            <div class="tt-type">{{ it.type }} · {{ it.rarity }}</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-    {% endfor %}
-
-    <!-- MATERIALS section -->
-    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin:32px 0 16px;padding-bottom:6px;border-bottom:1px solid var(--border2)">MATERIAL STORAGE</div>
-
-    {% for verdict, label, cls in [('sell','SELL ON TRADING POST','verdict-sell'), ('keep','KEEP','verdict-keep'), ('toss','VENDOR / SALVAGE','verdict-toss')] %}
-    {% set group = mats_grouped[verdict] %}
-    {% if group %}
-    <div class="item-section {{ cls }}">
-      <div class="section-header">
-        <div class="section-title">{{ label }}</div>
-        <div class="section-count">{{ group|length }} type{{ 's' if group|length != 1 }}</div>
-      </div>
-      <div class="col-header">
-        <div></div><div>Material</div><div class="col-r">Count</div><div class="col-r">TP Sell</div><div class="col-r">Vendor</div><div class="col-r">Reason</div>
-      </div>
-      <div class="item-grid">
-        {% for it in group %}
-        <div class="item-row">
-          <div class="item-icon">
-            {% if it.icon %}<img src="{{ it.icon }}" alt="">{% else %}<div style="width:32px;height:32px;background:rgba(0,0,0,0.4);border:1px solid var(--border)"></div>{% endif %}
-            {% if it.count > 1 %}<div class="count-badge">{{ it.count }}</div>{% endif %}
-          </div>
-          <div>
-            <div class="item-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            <div class="item-type">{{ it.type }}{% if it.rarity %} · {{ it.rarity }}{% endif %}</div>
-          </div>
-          <div class="item-col" style="color:var(--muted)">× {{ it.count }}</div>
-          <div class="item-col" style="color:var(--sell-gold)">{{ it.sell_price_fmt if it.sell_price else '—' }}</div>
-          <div class="item-col" style="color:var(--muted)">{{ it.vendor_value_fmt if it.vendor_value else '—' }}</div>
-          <div class="item-reason">{{ it.reason }}</div>
-          <div class="item-tooltip">
-            <div class="tt-name" style="color:{{ it.rarity_color }}">{{ it.name }}</div>
-            {% if it.description %}<div class="tt-desc">{{ it.description | striptags }}</div>{% endif %}
-            <div class="tt-type">{{ it.type }} · {{ it.rarity }}</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
+      {% if s.entries %}
+        {{ ui.verdict_sections(s.grouped) }}
+      {% else %}
+        <div style="font-size:11px;color:var(--muted);padding:8px 0">Nothing here.</div>
+      {% endif %}
     {% endfor %}
   </div>
 
-  <!-- Right: placeholder for future content -->
+  <!-- Right -->
   <div class="right-panel">
     <div class="panel-block">
-      <div class="pb-title">TIPS</div>
+      <div class="pb-title">TOTAL SELL POTENTIAL</div>
+      <div style="font-size:20px;font-weight:900;color:var(--sell-gold)">{{ overall.sell_net | gold }}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px">
+        Across all storage, net of the 15% TP fees.
+      </div>
+      <div style="margin-top:10px">
+        <a href="{{ url_for('search', verdict='sell') }}" class="chip active">See everything to sell →</a>
+      </div>
+    </div>
+
+    <div class="panel-block">
+      <div class="pb-title">HOW ITEMS ARE JUDGED</div>
       <div style="font-size:10px;color:var(--muted);line-height:1.6">
-        <p style="margin-bottom:8px"><span style="color:var(--keep-green)">■</span> <strong>Keep</strong>: Account/soulbound, Rare+, or used in unlocked recipes.</p>
-        <p style="margin-bottom:8px"><span style="color:var(--sell-gold)">■</span> <strong>Sell</strong>: TP net profit exceeds vendor value by the configured threshold.</p>
-        <p><span style="color:var(--toss-red)">■</span> <strong>Toss</strong>: Vendor or salvage — lowest return.</p>
+        <p style="margin-bottom:8px"><span style="color:var(--keep-green)">■</span> <strong>Keep</strong>: bound to you, Rare or better, unique, or an ingredient in something you can craft.</p>
+        <p style="margin-bottom:8px"><span style="color:var(--sell-gold)">■</span> <strong>Sell</strong>: the whole stack clears the threshold on the TP after fees, versus vendoring it.</p>
+        <p style="margin-bottom:8px"><span style="color:var(--salvage-teal)">■</span> <strong>Salvage</strong>: no vendor value, but a kit will take it.</p>
+        <p><span style="color:var(--toss-red)">■</span> <strong>Vendor / destroy</strong>: lowest return. Items flagged NoSell and NoSalvage can only be destroyed.</p>
       </div>
     </div>
   </div>
