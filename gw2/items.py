@@ -367,6 +367,50 @@ def totals(enriched: list) -> dict:
     }
 
 
+def aggregate_by_item(enriched: list) -> list[dict]:
+    """Collapse the same item across every location into one row.
+
+    Stacks are per-slot, so one character holding 323 of something in two slots
+    yields two entries for the same place. Counts are summed per location name so
+    that reads as "Scrollios x323" rather than "Scrollios x250 | Scrollios x73".
+    """
+    by_item: dict[int, dict] = {}
+    for i in enriched:
+        entry = by_item.get(i["id"])
+        if entry is None:
+            entry = by_item[i["id"]] = {
+                "id": i["id"],
+                "name": i["name"],
+                "icon": i["icon"],
+                "rarity": i["rarity"],
+                "rarity_color": i["rarity_color"],
+                "type": i["type"],
+                "verdict": i["verdict"],
+                "reason": i["reason"],
+                "wiki_url": i["wiki_url"],
+                "recipe_count": i["recipe_count"],
+                "sell_price": i["sell_price"],
+                "sell_price_fmt": i["sell_price_fmt"],
+                "total_count": 0,
+                "total_value": 0,
+                "stacks": 0,
+                "_by_location": {},
+            }
+        entry["total_count"] += i["count"]
+        entry["total_value"] += i["stack_value"]
+        entry["stacks"] += 1
+        loc = i["location"] or "Unknown"
+        entry["_by_location"][loc] = entry["_by_location"].get(loc, 0) + i["count"]
+
+    for entry in by_item.values():
+        entry["locations"] = sorted(
+            ({"where": w, "count": c} for w, c in entry.pop("_by_location").items()),
+            key=lambda loc: (-loc["count"], loc["where"]),
+        )
+
+    return sorted(by_item.values(), key=lambda r: r["total_value"], reverse=True)
+
+
 def type_counts(enriched: list) -> list[tuple[str, int]]:
     counts = {}
     for i in enriched:

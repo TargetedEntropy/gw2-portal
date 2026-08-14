@@ -265,34 +265,7 @@ def search():
     if verdict_filter in gw2_items.VERDICTS:
         results = [i for i in results if i["verdict"] == verdict_filter]
 
-    # Collapse the same item across locations into one row with a breakdown.
-    by_item = {}
-    for i in results:
-        entry = by_item.setdefault(
-            i["id"],
-            {
-                "id": i["id"],
-                "name": i["name"],
-                "icon": i["icon"],
-                "rarity": i["rarity"],
-                "rarity_color": i["rarity_color"],
-                "type": i["type"],
-                "verdict": i["verdict"],
-                "reason": i["reason"],
-                "wiki_url": i["wiki_url"],
-                "recipe_count": i["recipe_count"],
-                "sell_price": i["sell_price"],
-                "sell_price_fmt": i["sell_price_fmt"],
-                "total_count": 0,
-                "total_value": 0,
-                "locations": [],
-            },
-        )
-        entry["total_count"] += i["count"]
-        entry["total_value"] += i["stack_value"]
-        entry["locations"].append({"where": i["location"], "count": i["count"]})
-
-    rows = sorted(by_item.values(), key=lambda r: r["total_value"], reverse=True)
+    rows = gw2_items.aggregate_by_item(results)
 
     return render_template(
         "search.html",

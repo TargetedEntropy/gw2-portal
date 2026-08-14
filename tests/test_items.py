@@ -285,3 +285,91 @@ def test_items_with_no_recipes_get_no_used_in_entry():
     index = {"ingredients": {}, "recipe_output": {}}
     with mock.patch("gw2.api.items_bulk", return_value=({}, set())):
         assert items._resolve_used_in({10}, index, craftable=set()) == {}
+
+
+# --- Account-wide aggregation (search page) ---------------------------------
+
+def held(id, name, location, count, stack_value=0, **kw):
+    base = dict(
+        id=id, name=name, location=location, count=count, stack_value=stack_value,
+        icon="", rarity="Basic", rarity_color="#fff", type="CraftingMaterial",
+        verdict="sell", reason="", wiki_url="", recipe_count=0,
+        sell_price=0, sell_price_fmt="0c",
+    )
+    base.update(kw)
+    return base
+
+
+def test_multiple_stacks_in_one_place_merge_into_a_single_tag():
+    """Stacks are per-slot; two slots on one character is still one place."""
+    rows = items.aggregate_by_item([
+        held(1, "Unidentified Gear", "Scrollios", 250),
+        held(1, "Unidentified Gear", "Scrollios", 73),
+    ])
+    assert len(rows) == 1
+    assert rows[0]["locations"] == [{"where": "Scrollios", "count": 323}]
+    assert rows[0]["total_count"] == 323
+
+
+def test_stack_count_is_preserved_after_merging():
+    rows = items.aggregate_by_item([
+        held(1, "Thing", "Scrollios", 250),
+        held(1, "Thing", "Scrollios", 73),
+    ])
+    assert rows[0]["stacks"] == 2
+
+
+def test_a_single_stack_reports_one_stack():
+    rows = items.aggregate_by_item([held(1, "Thing", "Bank", 5)])
+    assert rows[0]["stacks"] == 1
+
+
+def test_distinct_locations_stay_separate():
+    rows = items.aggregate_by_item([
+        held(1, "Thing", "Bank", 10),
+        held(1, "Thing", "Scrollios", 5),
+        held(1, "Thing", "Bank", 2),
+    ])
+    assert rows[0]["locations"] == [
+        {"where": "Bank", "count": 12},
+        {"where": "Scrollios", "count": 5},
+    ]
+
+
+def test_locations_sort_by_count_then_name():
+    rows = items.aggregate_by_item([
+        held(1, "Thing", "Zeta", 5),
+        held(1, "Thing", "Alpha", 5),
+        held(1, "Thing", "Middle", 99),
+    ])
+    assert [l["where"] for l in rows[0]["locations"]] == ["Middle", "Alpha", "Zeta"]
+
+
+def test_rows_sort_by_total_value_descending():
+    rows = items.aggregate_by_item([
+        held(1, "Cheap", "Bank", 1, stack_value=10),
+        held(2, "Pricey", "Bank", 1, stack_value=9999),
+    ])
+    assert [r["name"] for r in rows] == ["Pricey", "Cheap"]
+
+
+def test_values_accumulate_across_locations():
+    rows = items.aggregate_by_item([
+        held(1, "Thing", "Bank", 10, stack_value=100),
+        held(1, "Thing", "Scrollios", 10, stack_value=100),
+    ])
+    assert rows[0]["total_value"] == 200
+
+
+def test_missing_location_is_labelled_not_blank():
+    rows = items.aggregate_by_item([held(1, "Thing", "", 3)])
+    assert rows[0]["locations"] == [{"where": "Unknown", "count": 3}]
+
+
+def test_internal_accumulator_is_not_leaked_to_the_template():
+    rows = items.aggregate_by_item([held(1, "Thing", "Bank", 1)])
+    assert "_by_location" not in rows[0]
+
+
+def test_aggregating_nothing_yields_nothing():
+    assert items.aggregate_by_item([]) == []

@@ -64,7 +64,10 @@
             {%- if r.recipe_count %} · <span style="color:var(--teal)">used in {{ r.recipe_count }} recipe{{ 's' if r.recipe_count != 1 }}</span>{% endif %}
           </div>
         </div>
-        <div class="item-col" style="color:var(--muted)">× {{ r.total_count }}</div>
+        <div class="item-col" style="color:var(--muted)">
+          × {{ r.total_count }}
+          {%- if r.stacks > 1 %}<div class="stack-note">{{ r.stacks }} stacks</div>{% endif %}
+        </div>
         <div class="item-col" style="color:var(--sell-gold)">
           {{ r.total_value | gold if r.total_value else '—' }}
         </div>
