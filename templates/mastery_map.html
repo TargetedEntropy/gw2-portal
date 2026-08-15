@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.name }} — Mastery Map{% endblock %}
+
+{% block content %}
+<div class="char-header">
+  <div class="char-portrait">🗺</div>
+  <div class="char-meta">
+    <div class="char-name">{{ entry.name }}</div>
+    <div class="char-sub">Mastery insight locations</div>
+    <div class="char-detail">
+      {{ pins|length }} point{{ 's' if pins|length != 1 }} on this map ·
+      {{ collected }} collected · {{ pins|length - collected }} remaining
+    </div>
+    <div style="margin-top:6px">
+      <a href="{{ url_for('masteries') }}" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Masteries</a>
+    </div>
+  </div>
+  <div class="char-stats">
+    <div class="stat-bar">
+      <div class="sb-icon">◆</div>
+      <div class="sb-label">Left</div>
+      <div class="sb-val" style="color:var(--sell-gold)">{{ pins|length - collected }}</div>
+    </div>
+    <div class="stat-bar">
+      <div class="sb-icon">✅</div>
+      <div class="sb-label">Got</div>
+      <div class="sb-val" style="color:var(--keep-green)">{{ collected }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="char-layout" style="grid-template-columns:1fr 300px">
+  <div class="center-panel">
+    <div class="map-frame" style="aspect-ratio:{{ grid.width }} / {{ grid.height }}">
+      <div class="map-tiles">
+        {% for t in tiles %}
+        <img src="{{ t.url }}" alt="" loading="lazy" class="map-tile"
+             style="left:{{ 100 * t.left / grid.width }}%;
+                    top:{{ 100 * t.top / grid.height }}%;
+                    width:{{ 100 * 256 / grid.width }}%;
+                    height:{{ 100 * 256 / grid.height }}%">
+        {% endfor %}
+      </div>
+      {% for p in pins %}
+      <a class="map-pin {{ 'got' if p.collected else 'todo' }}"
+         href="{{ p.wiki_url }}" target="_blank" rel="noopener noreferrer"
+         style="left:{{ p.left_pct }}%;top:{{ p.top_pct }}%"
+         title="{{ p.name }}{% if p.requirement %} — {{ p.requirement }}{% endif %}">
+        <span class="map-pin-dot"></span>
+        <span class="map-pin-label">{{ p.name.split(' Insight: ')[-1] }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-top:8px">
+      Official map tiles from tiles.guildwars2.com · zoom {{ zoom }} ·
+      {{ tiles|length }} tiles. Collected points are dimmed; hover a pin for its
+      requirement, click for the wiki.
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-block">
+      <div class="pb-title">POINTS ON THIS MAP</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        {% for p in pins %}
+        <a href="{{ p.wiki_url }}" target="_blank" rel="noopener noreferrer"
+           class="wiki-link" style="display:flex;gap:7px;align-items:baseline;font-size:10px;
+                  color:{{ 'var(--muted)' if p.collected else 'var(--cream)' }}">
+          <span style="color:{{ 'var(--keep-green)' if p.collected else 'var(--sell-gold)' }};font-size:8px">
+            {{ '✔' if p.collected else '◆' }}</span>
+          <span style="{% if p.collected %}text-decoration:line-through;opacity:0.65{% endif %}">
+            {{ p.name.split(' Insight: ')[-1] }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

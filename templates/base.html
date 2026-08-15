@@ -206,6 +206,36 @@
   }
   a.route-item:hover { color: var(--gold-light); }
 
+  /* MASTERY MAP */
+  .map-frame {
+    position: relative; width: 100%; overflow: hidden;
+    border: 1px solid var(--border2); background: #05080b;
+  }
+  .map-tiles { position: absolute; inset: 0; }
+  .map-tile { position: absolute; display: block; }
+  .map-pin {
+    position: absolute; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 4px;
+    text-decoration: none; z-index: 5; white-space: nowrap;
+  }
+  .map-pin-dot {
+    width: 11px; height: 11px; flex-shrink: 0;
+    border-radius: 50%; border: 2px solid #000;
+    box-shadow: 0 0 6px rgba(0,0,0,0.9);
+  }
+  .map-pin.todo .map-pin-dot { background: var(--sell-gold); }
+  .map-pin.got  .map-pin-dot { background: var(--keep-green); opacity: 0.45; }
+  .map-pin-label {
+    font-size: 9px; color: #fff; opacity: 0;
+    background: rgba(0,0,0,0.85); padding: 1px 5px;
+    border: 1px solid var(--border2); transition: opacity 0.12s;
+    pointer-events: none;
+  }
+  .map-pin:hover { z-index: 20; }
+  .map-pin:hover .map-pin-label { opacity: 1; }
+  .map-pin:hover .map-pin-dot { box-shadow: 0 0 10px var(--gold); }
+  .map-pin.got { opacity: 0.55; }
+
   .item-grid { display: flex; flex-direction: column; gap: 4px; }
   .item-row {
     display: grid;

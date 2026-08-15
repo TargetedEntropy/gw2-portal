@@ -448,7 +448,7 @@ def build_recipe_index(force: bool = False) -> dict:
 
 # --- Mastery-point achievement index ----------------------------------------
 
-_MASTERY_KEY = "mastery_achievements_v1"
+_MASTERY_KEY = "mastery_achievements_v2"  # v2 adds point_id
 _mastery_lock = threading.Lock()
 _mastery_memo: tuple[float, list] | None = None
 
@@ -536,6 +536,10 @@ def build_mastery_achievements(force: bool = False) -> list[dict]:
                         "id": a["id"],
                         "name": a.get("name", f"Achievement {a['id']}"),
                         "region": reward.get("region", ""),
+                        # The mastery point this awards. Shares a namespace with
+                        # /account/mastery/points `unlocked` and with the coords in
+                        # the continents tree, so it joins the three together.
+                        "point_id": reward.get("id"),
                         "requirement": a.get("requirement", ""),
                         "type": a.get("type", ""),
                         "flags": a.get("flags", []),
@@ -552,6 +556,129 @@ def build_mastery_achievements(force: bool = False) -> list[dict]:
             cache.set(_MASTERY_KEY, {"complete": True, "achievements": found})
             log.info("mastery index built: %d point-granting achievements", len(found))
         return found
+
+
+# --- Map / mastery-point coordinate index ------------------------------------
+
+_MAPDATA_KEY = "map_mastery_coords_v1"
+_mapdata_lock = threading.Lock()
+_mapdata_memo: tuple[float, dict] | None = None
+
+
+def cached_map_index() -> dict | None:
+    """{"maps": {map_id: {...}}, "points": {point_id: map_id}} or None."""
+    global _mapdata_memo
+
+    stamp = cache.mtime(_MAPDATA_KEY)
+    if stamp is None:
+        return None
+    if _mapdata_memo is not None and _mapdata_memo[0] == stamp:
+        return _mapdata_memo[1]
+
+    raw = cache.get(_MAPDATA_KEY, ttl=86400 * 30)
+    if raw is None or not raw.get("complete"):
+        return None
+    decoded = {
+        "maps": {int(k): v for k, v in raw["maps"].items()},
+        "points": {int(k): v for k, v in raw["points"].items()},
+    }
+    _mapdata_memo = (stamp, decoded)
+    return decoded
+
+
+def build_map_index(map_names: set[str], force: bool = False) -> dict:
+    """Locate mastery points on their maps, with coordinates.
+
+    Only the maps named by insight requirements are scanned — walking every map on
+    every floor would be thousands of requests for data we'd throw away.
+
+    The floor carrying `mastery_points` is not the floor serving tiles and is not
+    predictable, so each map's floors are tried in turn until one yields points.
+    """
+    with _mapdata_lock:
+        if not force:
+            existing = cached_map_index()
+            if existing is not None:
+                return existing
+
+        catalogue = _get(
+            "/maps", params={"ids": "all"}, ttl=86400 * 30,
+            authenticated=False, cache_response=False,
+        )
+        by_name = {m["name"]: m for m in catalogue}
+
+        maps: dict[int, dict] = {}
+        points: dict[int, int] = {}
+        missing = []
+
+        for name in sorted(map_names):
+            # The requirement text says "in the Desolation" and "in the Domain of
+            # Vabbi", but the map names are "The Desolation" and "Domain of Vabbi" --
+            # the article is part of one name and not the other, so try both forms.
+            meta = by_name.get(name) or by_name.get(f"The {name}")
+            if not meta or not meta.get("continent_rect"):
+                missing.append(name)
+                continue
+
+            continent = meta.get("continent_id")
+            region = meta.get("region_id")
+            floors = [meta.get("default_floor")] + list(meta.get("floors") or [])
+            found = None
+            for floor in dict.fromkeys(f for f in floors if f is not None):
+                try:
+                    data = _get(
+                        f"/continents/{continent}/floors/{floor}/regions/{region}/maps/{meta['id']}",
+                        ttl=86400 * 30, authenticated=False, cache_response=False,
+                    )
+                except Exception:
+                    continue
+                if data.get("mastery_points"):
+                    found = data
+                    break
+
+            if not found:
+                missing.append(name)
+                continue
+
+            entry = {
+                "id": meta["id"],
+                # Keyed by the name the route cards use, not the canonical one, so
+                # the two sides still join.
+                "name": name,
+                "map_name": meta["name"],
+                "continent_id": continent,
+                # Tiles come from default_floor, NOT the floor the coords were on.
+                "tile_floor": meta.get("default_floor", 1),
+                "continent_rect": meta["continent_rect"],
+                "points": [
+                    {"id": p["id"], "coord": p["coord"], "region": p.get("region", "")}
+                    for p in found["mastery_points"]
+                ],
+            }
+            maps[meta["id"]] = entry
+            for p in entry["points"]:
+                points[p["id"]] = meta["id"]
+
+        if missing:
+            log.info("no map coordinates for %d location(s): %s",
+                     len(missing), ", ".join(missing[:5]))
+
+        index = {"maps": maps, "points": points}
+        cache.set(
+            _MAPDATA_KEY,
+            {
+                "complete": True,
+                "maps": {str(k): v for k, v in maps.items()},
+                "points": {str(k): v for k, v in points.items()},
+            },
+        )
+        log.info("map index built: %d maps, %d located mastery points",
+                 len(maps), len(points))
+        return index
+
+
+def continent_meta(continent_id: int) -> dict:
+    return _get(f"/continents/{continent_id}", ttl=86400 * 30, authenticated=False)
 
 
 def craftable_recipe_ids() -> set[int]:

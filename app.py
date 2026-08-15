@@ -13,6 +13,7 @@ else:
 
 from gw2 import api, cache
 from gw2 import items as gw2_items
+from gw2 import mapdata as gw2_mapdata
 from gw2 import masteries as gw2_masteries
 
 logging.basicConfig(
@@ -92,7 +93,8 @@ def _guard_host():
 def _security_headers(resp):
     resp.headers["Content-Security-Policy"] = (
         "default-src 'none'; "
-        "img-src 'self' https://render.guildwars2.com data:; "
+        # tiles.guildwars2.com serves the official map tiles for the mastery map.
+        "img-src 'self' https://render.guildwars2.com https://tiles.guildwars2.com data:; "
         "style-src 'unsafe-inline'; "
         "form-action 'none'; frame-ancestors 'none'; base-uri 'none'"
     )
@@ -302,6 +304,13 @@ def masteries():
     summary = gw2_masteries.region_summary(points, remaining)
     # Insights get a per-map route view; everything else stays a ranked list.
     routes = gw2_masteries.routes_by_map(shown) if tier_filter in ("", "0") else []
+
+    # Attach a map id where we have coordinates, so the card can link to the map.
+    map_index = api.cached_map_index()
+    if map_index:
+        by_name = {m["name"]: mid for mid, m in map_index["maps"].items()}
+        for trip in routes:
+            trip["map_id"] = by_name.get(trip["map"])
     return render_template(
         "masteries.html",
         building=False,
@@ -317,6 +326,64 @@ def masteries():
         tier_filter=tier_filter,
         tier_labels=gw2_masteries.TIER_LABELS,
         region_names=gw2_masteries.REGION_NAMES,
+    )
+
+
+@app.route("/masteries/map/<int:map_id>")
+def mastery_map(map_id):
+    index = api.cached_map_index()
+    if index is None:
+        abort(404, description="Map coordinates are still being indexed.")
+    entry = index["maps"].get(map_id)
+    if entry is None:
+        abort(404, description="No mastery points recorded for that map.")
+
+    continent = api.continent_meta(entry["continent_id"])
+    max_zoom = continent["max_zoom"]
+    zoom = gw2_mapdata.choose_zoom(entry["continent_rect"], max_zoom)
+    grid = gw2_mapdata.tile_grid(entry["continent_rect"], zoom, max_zoom)
+
+    tiles = [
+        {
+            **tile,
+            "url": gw2_mapdata.tile_url(
+                entry["continent_id"], entry["tile_floor"], zoom, tile["x"], tile["y"]
+            ),
+        }
+        for tile in grid["tiles"]
+    ]
+
+    # `unlocked` is per mastery point, so collected state is exact here rather than
+    # inferred from achievement completion.
+    unlocked = set(api.account_mastery_points().get("unlocked", []))
+    catalogue = api.cached_mastery_achievements() or []
+    names = {
+        a["point_id"]: a for a in catalogue if a.get("point_id") is not None
+    }
+
+    pins = []
+    for point in entry["points"]:
+        achievement = names.get(point["id"])
+        pins.append(
+            {
+                **gw2_mapdata.pin_position(point["coord"], grid, max_zoom),
+                "id": point["id"],
+                "collected": point["id"] in unlocked,
+                "name": (achievement or {}).get("name", f"Mastery Point {point['id']}"),
+                "requirement": (achievement or {}).get("requirement", ""),
+                "wiki_url": gw2_masteries.wiki_url((achievement or {}).get("name", "")),
+            }
+        )
+    pins.sort(key=lambda p: (p["collected"], p["name"]))
+
+    return render_template(
+        "mastery_map.html",
+        entry=entry,
+        grid=grid,
+        tiles=tiles,
+        pins=pins,
+        zoom=zoom,
+        collected=sum(1 for p in pins if p["collected"]),
     )
 
 
@@ -374,6 +441,16 @@ def _fmt_currency(cid: int, value: int) -> str:
 # --- Background jobs ---------------------------------------------------------
 
 
+def _insight_map_names() -> set[str]:
+    catalogue = api.cached_mastery_achievements() or []
+    names = {
+        gw2_masteries.insight_map(a)
+        for a in catalogue
+        if gw2_masteries.is_insight(a)
+    }
+    return {n for n in names if n}
+
+
 def _scheduler():
     """Keeps expensive work off the request path.
 
@@ -390,6 +467,14 @@ def _scheduler():
                 build()
         except Exception:
             log.exception("initial %s index build failed", label)
+
+    # Depends on the mastery index: the maps to scan come from insight requirements.
+    try:
+        if api.cached_map_index() is None:
+            log.info("no map index cached — building in background")
+            api.build_map_index(_insight_map_names())
+    except Exception:
+        log.exception("initial map index build failed")
 
     last_index = time.time()
     while True:
@@ -408,6 +493,10 @@ def _scheduler():
                     build(force=True)
                 except Exception:
                     log.exception("scheduled %s index rebuild failed", label)
+            try:
+                api.build_map_index(_insight_map_names(), force=True)
+            except Exception:
+                log.exception("scheduled map index rebuild failed")
             last_index = time.time()
 
 

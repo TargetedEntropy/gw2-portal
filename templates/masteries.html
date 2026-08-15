@@ -140,9 +140,15 @@
       {% for trip in routes %}
       <div class="route-card">
         <div class="route-head">
-          <a class="wiki-link" style="color:var(--gold-light);font-size:12px;font-weight:700"
-             href="https://wiki.guildwars2.com/index.php?search={{ trip.map | urlencode }}"
-             target="_blank" rel="noopener noreferrer">{{ trip.map }}<span class="ext">↗</span></a>
+          {% if trip.map_id %}
+            <a href="{{ url_for('mastery_map', map_id=trip.map_id) }}"
+               style="color:var(--gold-light);font-size:12px;font-weight:700;text-decoration:none"
+               title="Show {{ trip.map }} on the map">{{ trip.map }} <span style="font-size:9px;color:var(--teal)">🗺</span></a>
+          {% else %}
+            <a class="wiki-link" style="color:var(--gold-light);font-size:12px;font-weight:700"
+               href="https://wiki.guildwars2.com/index.php?search={{ trip.map | urlencode }}"
+               target="_blank" rel="noopener noreferrer">{{ trip.map }}<span class="ext">↗</span></a>
+          {% endif %}
           <span class="route-count">{{ trip.insights|length }}</span>
         </div>
         <div class="route-region">{{ trip.region_name }}</div>
