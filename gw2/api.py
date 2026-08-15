@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 import requests
 
-from . import cache
+from . import cache, mapdata
 
 log = logging.getLogger(__name__)
 
@@ -560,9 +560,17 @@ def build_mastery_achievements(force: bool = False) -> list[dict]:
 
 # --- Map / mastery-point coordinate index ------------------------------------
 
-_MAPDATA_KEY = "map_mastery_coords_v1"
+_MAPDATA_KEY = "map_mastery_coords_v2"  # v2 records a verified tile zoom
 _mapdata_lock = threading.Lock()
 _mapdata_memo: tuple[float, dict] | None = None
+
+
+def _tile_exists(url: str) -> bool:
+    """Tiles are on a CDN, not the rate-limited API, so they bypass the bucket."""
+    try:
+        return requests.head(url, timeout=15).status_code == 200
+    except requests.RequestException:
+        return False
 
 
 def cached_map_index() -> dict | None:
@@ -640,6 +648,16 @@ def build_map_index(map_names: set[str], force: bool = False) -> dict:
                 missing.append(name)
                 continue
 
+            # Confirm the map is actually renderable before storing a zoom for it.
+            tile_floor = meta.get("default_floor", 1)
+            continent_info = continent_meta(continent)
+            tile_zoom = mapdata.probe_zoom(
+                meta["continent_rect"], continent, tile_floor,
+                continent_info["max_zoom"], _tile_exists,
+            )
+            if tile_zoom is None:
+                log.info("no tiles published for %s — pins only", name)
+
             entry = {
                 "id": meta["id"],
                 # Keyed by the name the route cards use, not the canonical one, so
@@ -648,7 +666,9 @@ def build_map_index(map_names: set[str], force: bool = False) -> dict:
                 "map_name": meta["name"],
                 "continent_id": continent,
                 # Tiles come from default_floor, NOT the floor the coords were on.
-                "tile_floor": meta.get("default_floor", 1),
+                "tile_floor": tile_floor,
+                "tile_zoom": tile_zoom,
+                "max_zoom": continent_info["max_zoom"],
                 "continent_rect": meta["continent_rect"],
                 "points": [
                     {"id": p["id"], "coord": p["coord"], "region": p.get("region", "")}

@@ -100,3 +100,60 @@ def test_tile_url_uses_the_documented_shape():
 def test_tiny_map_still_yields_at_least_one_tile():
     grid = md.tile_grid([[1000, 1000], [1001, 1001]], zoom=5, max_zoom=MAX_ZOOM)
     assert grid["cols"] >= 1 and grid["rows"] >= 1 and grid["tiles"]
+
+
+# --- Zoom probing ------------------------------------------------------------
+
+def test_probe_returns_the_highest_zoom_that_actually_serves_tiles():
+    """Janthir Syntri publishes tiles only up to zoom 4; the budget wanted 6."""
+    def exists(url):
+        return "/4/" in url or "/3/" in url
+    assert md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, exists) == 4
+
+
+def test_probe_gives_up_when_no_zoom_has_tiles():
+    """Bava Nisos has no imagery at all; the page must fall back, not 404 in a grid."""
+    assert md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, lambda url: False) is None
+
+
+def test_probe_prefers_a_fully_covered_zoom_over_a_patchy_higher_one():
+    """A centre-only check accepts a zoom that renders with holes around the rim."""
+    def exists(url):
+        if "/6/" in url:
+            return url.endswith("/38.jpg")   # only some tiles at zoom 6
+        return "/5/" in url
+
+    assert md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, exists) == 5
+
+
+def test_probe_accepts_partial_coverage_rather_than_giving_up():
+    """Janthir Syntri is patchy at every zoom; 14 of 16 tiles beats no map at all."""
+    # At zoom 4 this map spans tiles x13-15, y9-10, so this covers the top row only.
+    def exists(url):
+        return "/4/" in url and url.endswith("/9.jpg")
+
+    assert md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, exists) == 4
+
+
+def test_probe_checks_more_than_one_tile():
+    calls = []
+    md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, lambda u: calls.append(u) or True)
+    assert len(calls) > 1
+
+
+def test_zoom_never_exceeds_what_the_tile_server_publishes():
+    """Zoom 8 404s even on maps that are otherwise complete."""
+    tiny = [[1000, 1000], [1100, 1100]]
+    assert md.choose_zoom(tiny, MAX_ZOOM) <= md.HIGHEST_SERVED_ZOOM
+
+
+def test_partial_fallback_picks_the_best_covered_zoom_not_the_highest():
+    """Coverage thins as zoom rises, so the highest partial zoom is the patchiest."""
+    def exists(url):
+        if "/6/" in url:
+            return url.endswith("/38.jpg")          # barely any coverage
+        if "/5/" in url:
+            return not url.endswith("/20.jpg")      # most tiles present
+        return False
+
+    assert md.probe_zoom(DH_RECT, 1, 1, MAX_ZOOM, exists) == 5

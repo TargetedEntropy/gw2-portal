@@ -211,6 +211,11 @@
     position: relative; width: 100%; overflow: hidden;
     border: 1px solid var(--border2); background: #05080b;
   }
+  .map-frame.no-tiles {
+    background-image: linear-gradient(rgba(140,90,20,0.09) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(140,90,20,0.09) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
   .map-tiles { position: absolute; inset: 0; }
   .map-tile { position: absolute; display: block; }
   .map-pin {

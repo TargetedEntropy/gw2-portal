@@ -338,20 +338,27 @@ def mastery_map(map_id):
     if entry is None:
         abort(404, description="No mastery points recorded for that map.")
 
-    continent = api.continent_meta(entry["continent_id"])
-    max_zoom = continent["max_zoom"]
-    zoom = gw2_mapdata.choose_zoom(entry["continent_rect"], max_zoom)
-    grid = gw2_mapdata.tile_grid(entry["continent_rect"], zoom, max_zoom)
+    max_zoom = entry.get("max_zoom") or api.continent_meta(entry["continent_id"])["max_zoom"]
+    # Verified at index time, so this renders rather than 404ing. None means the
+    # tile server has no imagery for this zone at any zoom.
+    zoom = entry.get("tile_zoom")
+    grid = gw2_mapdata.tile_grid(
+        entry["continent_rect"], zoom or gw2_mapdata.choose_zoom(entry["continent_rect"], max_zoom), max_zoom
+    )
 
-    tiles = [
-        {
-            **tile,
-            "url": gw2_mapdata.tile_url(
-                entry["continent_id"], entry["tile_floor"], zoom, tile["x"], tile["y"]
-            ),
-        }
-        for tile in grid["tiles"]
-    ]
+    tiles = (
+        [
+            {
+                **tile,
+                "url": gw2_mapdata.tile_url(
+                    entry["continent_id"], entry["tile_floor"], zoom, tile["x"], tile["y"]
+                ),
+            }
+            for tile in grid["tiles"]
+        ]
+        if zoom
+        else []
+    )
 
     # `unlocked` is per mastery point, so collected state is exact here rather than
     # inferred from achievement completion.

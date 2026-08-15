@@ -31,7 +31,15 @@
 
 <div class="char-layout" style="grid-template-columns:1fr 300px">
   <div class="center-panel">
-    <div class="map-frame" style="aspect-ratio:{{ grid.width }} / {{ grid.height }}">
+    {% if not tiles %}
+    <div class="banner info">
+      <strong>No map imagery published for {{ entry.name }}.</strong>
+      The tile server has nothing for this zone at any zoom level — it's one of the
+      newest maps. The pins below are still positioned correctly relative to each
+      other, so the layout is accurate even without the terrain behind it.
+    </div>
+    {% endif %}
+    <div class="map-frame {{ 'no-tiles' if not tiles }}" style="aspect-ratio:{{ grid.width }} / {{ grid.height }}">
       <div class="map-tiles">
         {% for t in tiles %}
         <img src="{{ t.url }}" alt="" loading="lazy" class="map-tile"
@@ -52,8 +60,8 @@
       {% endfor %}
     </div>
     <div style="font-size:9px;color:var(--muted);margin-top:8px">
-      Official map tiles from tiles.guildwars2.com · zoom {{ zoom }} ·
-      {{ tiles|length }} tiles. Collected points are dimmed; hover a pin for its
+      {% if tiles %}Official map tiles from tiles.guildwars2.com · zoom {{ zoom }} ·
+      {{ tiles|length }} tiles.{% else %}Pin layout only — no tiles available.{% endif %} Collected points are dimmed; hover a pin for its
       requirement, click for the wiki.
     </div>
   </div>
