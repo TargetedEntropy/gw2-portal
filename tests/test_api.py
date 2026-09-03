@@ -59,6 +59,12 @@ def test_schema_is_part_of_the_cache_key():
             assert api._get("/account", ttl=300) == {"a": 2}
 
 
+def test_legendary_armory_uses_a_schema_where_the_endpoint_exists():
+    with mock.patch("gw2.api._get", return_value=[]) as g:
+        api.legendary_armory()
+    assert g.call_args.kwargs["schema"] == "latest"
+
+
 # --- Error typing (fixes.md item 11) ----------------------------------------
 
 @pytest.mark.parametrize("status,exc", [
@@ -144,6 +150,28 @@ def test_bulk_respects_the_200_id_limit():
         api.items_bulk(list(range(1, 451)))
     assert all(len(c) <= api.BULK_LIMIT for c in calls)
     assert sum(len(c) for c in calls) == 450
+
+
+def test_itemstats_use_the_bulk_client_and_per_id_cache():
+    with mock.patch(
+        "gw2.api._get",
+        return_value=[{"id": 161, "name": "Berserker's", "attributes": []}],
+    ) as g:
+        result, failed = api.itemstats_bulk([161])
+        assert result[161]["name"] == "Berserker's" and failed == set()
+        api.itemstats_bulk([161])
+        assert g.call_count == 1
+
+
+def test_professions_are_indexed_by_id():
+    payload = [
+        {"id": "Engineer", "weapons": {"Rifle": {}}},
+        {"id": "Ranger", "weapons": {"LongBow": {}}},
+    ]
+    with mock.patch("gw2.api._get", return_value=payload):
+        result = api.professions()
+    assert set(result) == {"Engineer", "Ranger"}
+    assert "Rifle" in result["Engineer"]["weapons"]
 
 
 # --- Rate limiting (fixes.md item 9) ----------------------------------------
