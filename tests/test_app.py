@@ -89,6 +89,48 @@ def test_unknown_character_is_a_404_not_an_upstream_call(client):
     fetch.assert_not_called()
 
 
+def test_unknown_equipment_character_is_a_404_not_an_upstream_call(client):
+    with mock.patch("gw2.api.characters", return_value=["Real"]), \
+         mock.patch("gw2.api.character") as fetch:
+        r = client.get("/equipment/Fake", headers={"Host": "127.0.0.1:5000"})
+    assert r.status_code == 404
+    fetch.assert_not_called()
+
+
+def test_equipment_picker_lists_characters(client):
+    with mock.patch("gw2.api.characters", return_value=["Main"]), \
+         mock.patch(
+             "gw2.api.character",
+             return_value={"profession": "Engineer", "race": "Charr", "level": 80},
+         ):
+        r = client.get("/equipment", headers={"Host": "127.0.0.1:5000"})
+    assert r.status_code == 200
+    assert b"Main" in r.data and b"Engineer" in r.data
+
+
+def test_equipment_route_scans_storage_and_renders_report(client):
+    char = {
+        "name": "Main",
+        "profession": "Engineer",
+        "race": "Charr",
+        "level": 80,
+        "equipment": [{"id": 1, "slot": "Coat"}],
+        "bags": [],
+    }
+    with mock.patch("gw2.api.characters", return_value=["Main"]), \
+         mock.patch("gw2.api.character", return_value=char), \
+         mock.patch("gw2.api.bank", return_value=[]), \
+         mock.patch("gw2.api.shared_inventory", return_value=[]), \
+         mock.patch("gw2.api.legendary_armory", return_value=[]), \
+         mock.patch("gw2.api.items_bulk", return_value=({}, {1})), \
+         mock.patch("gw2.api.professions", return_value={}), \
+         mock.patch("gw2.api.itemstats_bulk", return_value=({}, set())):
+        r = client.get("/equipment/Main", headers={"Host": "127.0.0.1:5000"})
+    assert r.status_code == 200
+    assert b"Equipment" in r.data and b"Main" in r.data
+    assert b"omitted rather than guessed" in r.data
+
+
 # --- Config loading (fixes.md item 23) --------------------------------------
 
 def test_config_is_resolved_relative_to_the_app_not_the_cwd():

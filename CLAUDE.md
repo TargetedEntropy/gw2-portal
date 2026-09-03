@@ -19,6 +19,7 @@ The visual layout is adapted from the EVE character portal v5 template: a 3-colu
 
 - Character inventory + equipment (per-character bags and gear)
 - Account bank (all bank tab slots)
+- Equipment upgrade finder across bank, shared slots, Legendary Armory, and every character's bags and equipped gear
 - Material storage (crafting materials tab)
 - Wallet + currencies (gold, Karma, Gems, WvW Badges, etc.)
 
@@ -29,7 +30,10 @@ The visual layout is adapted from the EVE character portal v5 template: a 3-colu
 - `/v2/account/bank` — bank contents (slot, item id, count, binding, upgrades)
 - `/v2/account/materials` — material storage
 - `/v2/account/inventory` — shared inventory slots
+- `/v2/account/legendaryarmory` — unlocked account-wide legendary equipment
 - `/v2/items?ids=...` — bulk item details (name, type, rarity, flags, vendor value)
+- `/v2/itemstats?ids=...` — prefix names and formulas for stat-selectable equipment
+- `/v2/professions?ids=all` — profession weapon compatibility for fallback inference
 - `/v2/commerce/prices?ids=...` — Trading Post buy/sell prices
 - `/v2/account/wallet` — currency; `/v2/currencies` and `/v2/worlds` to resolve ids
 - `/v2/recipes` — full recipe crawl for the ingredient index
@@ -94,6 +98,7 @@ gw2-portal/
   gw2/
     api.py            # GW2 client: rate limiting, retries, schema pin, recipe index
     items.py          # Item analysis / classification logic (pure, no I/O)
+    equipment.py      # Pure compatibility, profile inference, upgrade comparisons
     cache.py          # Atomic file cache with TTLs, pruning, corruption recovery
   templates/
     base.html         # 3-col dark theme + all CSS (inlined; no static/ dir yet)

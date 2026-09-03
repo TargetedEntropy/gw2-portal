@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ char_name }} — Equipment Upgrades{% endblock %}
+
+{% macro attributes(item) -%}
+  {% for a in item.attributes %}
+    <span class="gear-attribute">+{{ a.value }} {{ a.name }}</span>
+  {% else %}
+    <span class="gear-attribute unknown">Stats unavailable</span>
+  {% endfor %}
+{%- endmacro %}
+
+{% block content %}
+<div class="char-header">
+  <div class="char-portrait">⚒</div>
+  <div class="char-meta">
+    <div class="char-name">{{ char_name }}</div>
+    <div class="char-sub">{{ char.get('race','') }} {{ report.profession }} · {{ report.armor_weight }} Armor · Level {{ char.get('level','?') }}</div>
+    <div class="char-detail">
+      Profession: {{ report.profession_source }} &nbsp;·&nbsp;
+      Profile: {{ report.profile.label }} ({{ report.profile.confidence }} confidence)
+    </div>
+    <div style="margin-top:6px"><a href="{{ url_for('equipment_picker') }}" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none">← Choose character</a></div>
+  </div>
+  <div class="char-stats">
+    <div class="stat-bar"><div class="sb-icon">◆</div><div class="sb-label">Held</div><div class="sb-val" style="color:var(--gold-light)">{{ report.equipment_candidate_count }} gear</div></div>
+    <div class="stat-bar"><div class="sb-icon">↑</div><div class="sb-label">Found</div><div class="sb-val" style="color:var(--keep-green)">{{ report.recommendation_count }} options</div></div>
+    <div class="stat-bar"><div class="sb-icon">?</div><div class="sb-label">Unknown</div><div class="sb-val" style="color:var(--unknown-grey)">{{ report.unknown_count }}</div></div>
+  </div>
+</div>
+
+<div class="char-layout">
+  <div class="left-panel">
+    <div class="panel-block">
+      <div class="pb-title">INFERRED BUILD PROFILE</div>
+      <div class="gear-profile-name">{{ report.profile.label }}</div>
+      <div class="gear-confidence">{{ report.profile.confidence }} confidence from {{ report.profile.pieces }} equipped pieces</div>
+      <div class="gear-profile-bars">
+        {% for a in report.profile.priorities %}<div class="gear-profile-row"><span>{{ a.name }}</span><strong>{{ a.value }}</strong></div>
+        {% else %}<div class="gear-confidence">No readable equipment stats.</div>{% endfor %}
+      </div>
+    </div>
+    <div class="panel-block"><div class="pb-title">HOW THIS JUDGES</div><div class="gear-help">Same slot, armor weight, and weapon type only. Candidate stats must closely match what is worn now and must not meaningfully cut an existing attribute. Then it looks for more aligned attributes, defense, or weapon strength.</div></div>
+  </div>
+
+  <div class="center-panel">
+    {% if source_errors %}<div class="banner"><strong>Incomplete scan.</strong> Could not read: {{ source_errors|join(', ') }}.</div>{% endif %}
+    {% if report.unknown_count %}<div class="banner"><strong>{{ report.unknown_count }} lookup{{ 's' if report.unknown_count != 1 }} could not be resolved.</strong> They were omitted rather than guessed about.</div>{% endif %}
+    {% if report.profession == 'Unknown' %}<div class="banner"><strong>Profession unavailable.</strong> Equipped gear narrowed it to {{ report.profession_options|join(', ') if report.profession_options else 'no reliable match' }}. Existing-slot comparisons still work.</div>{% endif %}
+
+    <div class="equipment-summary"><strong>{{ report.recommendations|length }} slot{{ 's' if report.recommendations|length != 1 }} with likely upgrades</strong><span>from {{ report.equipment_candidate_count }} equipment pieces in storage and bags</span></div>
+
+    {% for rec in report.recommendations %}
+    <section class="upgrade-slot">
+      <div class="upgrade-slot-head"><div><div class="section-title">{{ rec.slot_name }}</div>{% if rec.current %}<div class="gear-current-label">Currently: {{ rec.current.name }} · {{ rec.current.stat_name }}</div>{% else %}<div class="gear-current-label">Currently empty</div>{% endif %}</div><span class="section-count">{{ rec.candidates|length }} best match{{ 'es' if rec.candidates|length != 1 }}</span></div>
+      {% if rec.current %}<div class="current-gear-line">{% if rec.current.icon %}<img src="{{ rec.current.icon }}" alt="">{% endif %}<div><strong style="color:{{ rarity_colors.get(rec.current.rarity, '#fff') }}">{{ rec.current.name }}</strong><div>{{ attributes(rec.current) }}</div></div></div>{% endif %}
+      <div class="upgrade-grid">
+        {% for item in rec.candidates %}
+        <article class="upgrade-card">
+          <div class="upgrade-card-top">{% if item.icon %}<img src="{{ item.icon }}" alt="">{% endif %}<div><div class="upgrade-name" style="color:{{ rarity_colors.get(item.rarity, '#fff') }}">{{ item.name }}</div><div class="upgrade-meta">{{ item.rarity }} · level {{ item.level }} · {{ item.stat_name }}</div></div><div class="upgrade-gain">{{ '+' if item.gain >= 0 }}{{ item.gain }}%</div></div>
+          <div class="upgrade-reason">{{ item.reason }} · {{ item.match }}% profile match</div>
+          <div class="gear-attributes">{{ attributes(item) }}</div>
+          <div class="upgrade-location">Found in {{ item.location }}{% if item.available_count > 1 %} · {{ item.available_count }} copies{% endif %}{% if item.selectable %} · choose {{ item.stat_name }}{% endif %}</div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <div class="empty-upgrades">No defensible like-for-like upgrades were found in the scanned inventory. Other pieces may be valid sidegrades, but the tool will not call a build change an upgrade without knowing your intent.</div>
+    {% endfor %}
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-block"><div class="pb-title">EQUIPPED ISSUES</div>{% for issue in report.socket_notes %}<div class="socket-note"><strong>{{ issue.slot }} · {{ issue.name }}</strong><span>{{ issue.notes|join(' · ') }}</span></div>{% else %}<div class="gear-help">No obvious empty rune, sigil, or infusion slots detected.</div>{% endfor %}</div>
+    <div class="panel-block"><div class="pb-title">LIMITS</div><div class="gear-help">Inventory triage is not a build guide. Traits, rotations, encounters, rune sets, sigil effects, relics, and desired boon or condition duration can make a sidegrade correct. Slot cards are alternatives: one physical item may appear for both ring or accessory slots, but one copy cannot fill both, and Unique items can only be equipped once.</div></div>
+  </div>
+</div>
+{% endblock %}

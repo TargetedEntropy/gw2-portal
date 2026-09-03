@@ -146,9 +146,10 @@ def _get(
     authenticated: bool = True,
     cache_response: bool = True,
     stale_ttl: int = None,
+    schema: str = None,
 ):
     params = dict(params or {})
-    params["v"] = SCHEMA
+    params["v"] = schema or SCHEMA
     key = path + str(sorted(params.items()))
 
     if cache_response:
@@ -209,6 +210,13 @@ def shared_inventory():
     return _get("/account/inventory", ttl=60)
 
 
+def legendary_armory():
+    """Legendary equipment available account-wide, with per-template counts."""
+    # The endpoint did not exist under the global 2019 schema used to preserve
+    # the portal's flat character equipment response.
+    return _get("/account/legendaryarmory", ttl=300, schema="latest")
+
+
 def account_recipes() -> list[int]:
     return _get("/account/recipes", ttl=300)
 
@@ -229,6 +237,20 @@ def account_achievements() -> list[dict]:
 
 def masteries() -> list[dict]:
     return _get("/masteries", params={"ids": "all"}, ttl=86400, authenticated=False)
+
+
+def professions() -> dict[str, dict]:
+    """Profession definitions, including weapon access."""
+    data = _get(
+        "/professions", params={"ids": "all"}, ttl=86400, authenticated=False
+    )
+    return {p["id"]: p for p in data}
+
+
+def itemstats_bulk(ids: list[int]) -> tuple[dict[int, dict], set[int]]:
+    """Attribute-combination definitions, cached per id for 24h."""
+    result, failed = _bulk("/itemstats", "itemstat", ids, ttl=86400)
+    return {k: v for k, v in result.items() if v is not None}, failed
 
 
 # --- Public endpoints --------------------------------------------------------

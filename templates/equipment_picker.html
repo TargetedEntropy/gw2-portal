@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Equipment Upgrades — GW2 Portal{% endblock %}
+
+{% block content %}
+<div class="char-header">
+  <div class="char-portrait">⚒</div>
+  <div class="char-meta">
+    <div class="char-name">Equipment Upgrades</div>
+    <div class="char-sub">Bank · Shared Inventory · Legendary Armory · Every Character</div>
+    <div class="char-detail">Choose who is getting geared. The tool compares only compatible, similarly-statted items.</div>
+  </div>
+</div>
+
+<div class="char-layout" style="grid-template-columns:1fr">
+  <div class="center-panel">
+    <div class="banner info">
+      <strong>Conservative by design.</strong>
+      This finds likely upgrades already on the account. It reads the character's profession from the API and
+      infers a damage/support profile from equipped stats. A different build is treated as a sidegrade, not as
+      divine revelation from a spreadsheet.
+    </div>
+    <div class="equipment-picker-grid">
+      {% for char in characters %}
+      <a class="equipment-pick" href="{{ url_for('equipment', char_name=char.name) }}">
+        <div class="char-item-name">{{ char.name }}</div>
+        <div class="char-item-sub">Level {{ char.level }} · {{ char.race }} {{ char.profession }}</div>
+        <div class="equipment-pick-arrow">Analyse gear →</div>
+      </a>
+      {% else %}
+      <div style="color:var(--muted)">No characters were returned by the API.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

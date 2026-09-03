@@ -8,6 +8,7 @@ A single-user Guild Wars 2 character portal. Connects to the GW2 API to show you
 - **Inventory analysis** — per-character bag contents with a verdict for every item
 - **Bank, materials & shared slots** — all account storage with the same analysis
 - **Account-wide search** — find any item across every character, bank, and material storage at once, or list everything worth selling in one view
+- **Equipment upgrades** — scan bank, shared slots, Legendary Armory, and every character's bags and equipped gear for compatible like-for-like upgrades; profession comes from character data, while the intended stat profile is inferred from currently equipped gear
 - **Item tooltips** — description, type, rarity, both TP prices, and the stack maths
 - **Sell potential** — gold after TP fees for everything recommended to sell
 
@@ -31,6 +32,21 @@ The latter never appear in `/v2/account/recipes` (on this account: 0 of 2,096), 
 leaving them out shrinks the signal from ~2,150 recipes to ~50.
 
 Thresholds and the price basis are configurable in `config.toml`.
+
+### Equipment recommendations
+
+The Equipment page deliberately answers the narrow question “do I already own a
+safe improvement for this slot?” It compares armor only within the character's
+weight class, weapons only against the same weapon type, and filters candidates to
+the stat distribution already visible on the equipped gear. A condition, support,
+or defensive sidegrade is not mislabeled as an upgrade to a power set. Stat-selectable
+items are expanded through `/v2/itemstats`, Legendary Armory equipment is included,
+and empty rune, sigil, and infusion slots
+are called out separately.
+
+This is account-inventory triage rather than a replacement for a build guide. The
+public API does not encode encounter intent or rotations, and non-numeric rune/sigil
+effects are not reduced to a fake universal score.
 
 ## Setup
 

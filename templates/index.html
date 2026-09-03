@@ -82,6 +82,9 @@
       <a href="{{ url_for('search', verdict='sell') }}" style="padding:8px 16px;border:1px solid var(--sell-gold);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--sell-gold)">
         Everything to sell →
       </a>
+      <a href="{{ url_for('equipment_picker') }}" style="padding:8px 16px;border:1px solid var(--keep-green);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--keep-green)">
+        Find equipment upgrades →
+      </a>
       {% for name in char_names[:3] %}
       <a href="{{ url_for('inventory', char_name=name) }}" style="padding:8px 16px;border:1px solid var(--border2);font-size:10px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:var(--muted)">
         {{ name }} →

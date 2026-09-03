@@ -348,6 +348,47 @@
     padding: 24px; text-align: center;
   }
 
+  /* EQUIPMENT UPGRADES */
+  .equipment-picker-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px; }
+  .equipment-pick { border:1px solid var(--border);background:var(--surface);padding:16px;text-decoration:none;color:var(--cream); }
+  .equipment-pick:hover { border-color:var(--gold);background:rgba(200,168,75,0.06); }
+  .equipment-pick-arrow { margin-top:12px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold); }
+  .gear-profile-name { font-size:16px;font-weight:800;color:var(--gold-light); }
+  .gear-confidence,.gear-help { margin-top:5px;font-size:9px;color:var(--muted);line-height:1.6; }
+  .gear-profile-bars { margin-top:12px;display:flex;flex-direction:column;gap:5px; }
+  .gear-profile-row { display:flex;justify-content:space-between;font-size:9px;color:var(--muted); }
+  .gear-profile-row strong { color:var(--cream);font-family:'Courier New',monospace; }
+  .equipment-summary { border-bottom:1px solid var(--border2);padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;gap:12px;font-size:10px; }
+  .equipment-summary strong { color:var(--gold-light);letter-spacing:1px;text-transform:uppercase; }
+  .equipment-summary span { color:var(--muted);text-align:right; }
+  .upgrade-slot { margin-bottom:28px; }
+  .upgrade-slot-head { display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:8px; }
+  .gear-current-label { margin-top:3px;font-size:9px;color:var(--muted); }
+  .current-gear-line { display:flex;align-items:center;gap:8px;padding:7px;background:rgba(0,0,0,0.22);font-size:10px; }
+  .current-gear-line img { width:30px;height:30px; }
+  .upgrade-grid { display:flex;flex-direction:column;gap:6px;margin-top:6px; }
+  .upgrade-card { border:1px solid rgba(26,147,6,0.4);background:rgba(26,147,6,0.055);padding:10px; }
+  .upgrade-card-top { display:grid;grid-template-columns:36px 1fr auto;gap:9px;align-items:center; }
+  .upgrade-card-top img { width:36px;height:36px; }
+  .upgrade-name { font-size:12px;font-weight:800; }
+  .upgrade-meta,.upgrade-location { font-size:8px;color:var(--muted);margin-top:2px; }
+  .upgrade-gain { color:var(--keep-green);font-family:'Courier New',monospace;font-size:15px;font-weight:800; }
+  .upgrade-reason { margin-top:7px;font-size:9px;color:var(--teal); }
+  .gear-attributes { margin-top:6px;display:flex;flex-wrap:wrap;gap:4px; }
+  .gear-attribute { display:inline-block;border:1px solid var(--border);padding:2px 5px;font-size:8px;color:var(--cream); }
+  .gear-attribute.unknown { color:var(--unknown-grey); }
+  .socket-note { display:flex;flex-direction:column;gap:3px;padding:6px 0;border-bottom:1px solid var(--border);font-size:9px; }
+  .socket-note strong { color:var(--gold-light); }
+  .socket-note span { color:var(--ember); }
+  .empty-upgrades { border:1px solid var(--border);padding:24px;color:var(--muted);font-size:11px;line-height:1.7; }
+
+  @media (max-width: 1000px) {
+    .char-layout { grid-template-columns:1fr; }
+    .left-panel,.right-panel { border:0;border-bottom:1px solid var(--border); }
+    .char-header { grid-template-columns:auto 1fr; }
+    .char-stats { grid-column:1 / -1; }
+  }
+
   a { color: var(--gold); }
   a:hover { color: var(--gold-light); }
 </style>
@@ -360,6 +401,7 @@
   <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Account</a>
   <a href="{{ url_for('bank') }}" class="nav-link {% if request.endpoint == 'bank' %}active{% endif %}">Bank</a>
   <a href="{{ url_for('search') }}" class="nav-link {% if request.endpoint == 'search' %}active{% endif %}">Search</a>
+  <a href="{{ url_for('equipment_picker') }}" class="nav-link {% if request.endpoint in ('equipment_picker', 'equipment') %}active{% endif %}">Equipment</a>
   <a href="{{ url_for('masteries') }}" class="nav-link {% if request.endpoint == 'masteries' %}active{% endif %}">Masteries</a>
 </nav>
 

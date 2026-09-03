@@ -12,6 +12,7 @@ else:
     import tomli as tomllib
 
 from gw2 import api, cache
+from gw2 import equipment as gw2_equipment
 from gw2 import items as gw2_items
 from gw2 import mapdata as gw2_mapdata
 from gw2 import masteries as gw2_masteries
@@ -278,6 +279,103 @@ def search():
         grand_total=sum(r["total_value"] for r in rows),
         account_totals=gw2_items.totals(everything),
         verdicts=gw2_items.VERDICTS,
+    )
+
+
+@app.route("/equipment")
+def equipment_picker():
+    """Character chooser for the account-wide equipment comparison tool."""
+    characters = []
+    for name in api.characters():
+        char = _safe(lambda n=name: api.character(n), default={})
+        characters.append(
+            {
+                "name": name,
+                "profession": char.get("profession", "Unknown profession"),
+                "race": char.get("race", ""),
+                "level": char.get("level", "?"),
+            }
+        )
+    return render_template("equipment_picker.html", characters=characters)
+
+
+@app.route("/equipment/<char_name>")
+def equipment(char_name):
+    """Compare account-held equipment with what a character currently wears."""
+    names = api.characters()
+    if char_name not in names:
+        abort(404, description="No such character on this account.")
+
+    char = api.character(char_name)
+    equipped = _equipped(char)
+    holdings = []
+    source_errors = []
+
+    def add_source(label, slots):
+        for slot in slots or []:
+            if slot and slot.get("id"):
+                holdings.append(
+                    {
+                        "slot": slot,
+                        "location": label,
+                        "target_character": char_name,
+                    }
+                )
+
+    for label, fetch in (
+        ("Bank", api.bank),
+        ("Shared inventory", api.shared_inventory),
+        ("Legendary Armory", api.legendary_armory),
+    ):
+        try:
+            add_source(label, fetch())
+        except api.GW2Error as e:
+            log.warning("equipment tool skipped %s: %s", label, e)
+            source_errors.append(label)
+
+    for name in names:
+        other = char if name == char_name else None
+        try:
+            other = other or api.character(name)
+            slots = []
+            for bag in other.get("bags") or []:
+                if bag:
+                    slots.extend(bag.get("inventory") or [])
+            add_source(f"{name}'s bags", slots)
+            if name != char_name:
+                add_source(f"{name}'s equipped gear", _equipped(other))
+        except api.GW2Error as e:
+            log.warning("equipment tool skipped %s's bags: %s", name, e)
+            source_errors.append(f"{name}'s bags")
+
+    all_instances = equipped + [h["slot"] for h in holdings]
+    item_ids = [s["id"] for s in all_instances if s and s.get("id")]
+    details, failed_items = api.items_bulk(item_ids)
+
+    wanted_stats = gw2_equipment.stat_ids(all_instances, details)
+    stat_defs, failed_stats = (
+        api.itemstats_bulk(sorted(wanted_stats)) if wanted_stats else ({}, set())
+    )
+    try:
+        profession_defs = api.professions()
+    except api.GW2Error as e:
+        log.warning("equipment tool could not load profession definitions: %s", e)
+        profession_defs = {}
+        source_errors.append("Profession definitions")
+
+    report = gw2_equipment.analyze(
+        char, equipped, holdings, details, stat_defs, profession_defs
+    )
+    # Missing item definitions were already counted while the report walked each
+    # physical holding. Missing stat definitions are separate unknowns.
+    report["unknown_count"] += len(failed_stats)
+    return render_template(
+        "equipment.html",
+        char=char,
+        char_name=char_name,
+        report=report,
+        source_errors=source_errors,
+        rarity_colors=gw2_items.RARITY_COLORS,
     )
 
 
